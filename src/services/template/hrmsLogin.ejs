@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HRMS Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #f1f1f1;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .email-header {
+            background-color: #e0e0e0;
+            text-align: center;
+            padding: 20px 10px;
+        }
+
+        .email-header img {
+            max-width: 150px;
+        }
+
+        .email-body {
+            padding: 20px;
+            background-color: #ffffff;
+        }
+
+        .email-body h1 {
+            font-size: 24px;
+            color: #007bff;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .email-body p {
+            margin: 10px 0;
+        }
+
+        .email-body ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .email-body ul li {
+            margin-bottom: 10px;
+        }
+
+        .email-body .button {
+            display: inline-block;
+            padding: 12px 20px;
+            color: #fff;
+            background-color: #007bff;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-size: 16px;
+        }
+
+        .email-body .button:hover {
+            background-color: #0056b3;
+        }
+
+        .email-footer {
+            text-align: center;
+            background: #f1f1f1;
+            padding: 10px 20px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .email-footer a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .email-footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="email-header">
+            <img src="https://kindasolutions.com/content/assets/img/kindalogo.png" alt="HRMS Logo">
+        </div>
+        <div class="email-body">
+            <h1>Welcome to HRMS</h1>
+            <p>Dear <%= firstName %>,</p>
+            <p>Your account has been successfully created. Below are your login credentials:</p>
+            <ul>
+                <li><strong>Email:</strong> <%= email %></li>
+                <li><strong>Password:</strong> <%= password %></li>
+            </ul>
+            <p>Please use the button below to log in to your HRMS account:</p>
+            <a href="<%= loginUrl %>" class="button">HRMS Login</a>
+            <p>If you have any questions, feel free to reach out to our support team.</p>
+            <p>Best regards,</p>
+            <p>Anushka Mishra</p>
+    <p> Senior Executive-HR</p> 
+              
+        </div>
+        <div class="email-footer">
+            <p>&copy; 2024 Kinda Solutions PVT LTD., Inc. All rights reserved.</p>
+            <p>Need help? <a href="mailto:hr@kindasolutions.com">Contact Us</a></p>
+        </div>
+    </div>
+</body>
+</html>
