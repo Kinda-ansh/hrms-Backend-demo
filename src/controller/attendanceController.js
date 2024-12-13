@@ -1,7 +1,8 @@
 const Attendance = require("../model/Attendance");
 const Leave = require("../model/Leave");
+const moment = require("moment-timezone");
 
-// Helper function to format time in "Xh Ym" format
+// Format time in "Xh Ym" format
 const formatTime = (minutes) => {
     const hours = Math.floor(minutes / 60); // Get the hours
     const mins = minutes % 60; // Get the remaining minutes
@@ -9,13 +10,106 @@ const formatTime = (minutes) => {
 };
 
 // Clock In Attendance
+// const markAttendance = async (req, res) => {
+//     try {
+//         const employeeId = req.user.id;
+//         const now = new Date();
+
+//         // Format date as YYYY-MM-DD for the `date` field
+//         const currentDate = now.toISOString().split("T")[0];
+
+//         // Check if attendance already exists for the employee on the same date
+//         const existingRecord = await Attendance.findOne({
+//             employeeId,
+//             date: currentDate,
+//         });
+
+//         if (existingRecord) {
+//             return res.status(200).json({
+//                 message: "Attendance already marked successfully for today.",
+//                 attendance: existingRecord,
+//             });
+//         }
+
+//         // Check if the employee is on leave
+//         const leaveRecord = await Leave.findOne({
+//             employeeId,
+//             startDate: { $lte: now },
+//             endDate: { $gte: now },
+//             status: "approved",
+//         });
+
+//         if (leaveRecord) {
+//             return res.status(200).json({
+//                 message: "Employee is on leave today.",
+//                 status: "on-leave",
+//                 leaveRecord,
+//             });
+//         }
+
+//         // Extract the time from the current date
+//         const currentHour = now.getHours();
+//         const officialStartTime = new Date(now);
+//         officialStartTime.setHours(10, 0, 0); // Set to 10:00 AM
+
+//         // Default values
+//         let status = "absent";
+//         let lateTimeInMinutes = 0;
+
+//         // Define weekly-off days (e.g., Sunday)
+//         const weeklyOffDays = [0]; // Sunday is 0
+//         const isWeeklyOff = weeklyOffDays.includes(now.getDay());
+
+//         // Logic for determining status
+//         if (isWeeklyOff) {
+//             status = "weekly-off";
+//         } else if (currentHour >= 6 && currentHour < 10) {
+//             status = "present";
+//             if (now > officialStartTime) {
+//                 lateTimeInMinutes = Math.floor((now - officialStartTime) / (60 * 1000));
+//                 if (lateTimeInMinutes > 0) {
+//                     status = "late";
+//                 }
+//             }
+//         } else if (currentHour >= 10) {
+//             status = "late";
+//             lateTimeInMinutes = Math.floor((now - officialStartTime) / (60 * 1000));
+//         }
+
+//         // Format late time in "Xh Ym" format
+//         const lateTime = formatTime(lateTimeInMinutes);
+
+//         // Create new attendance record
+//         const attendance = new Attendance({
+//             employeeId,
+//             date: currentDate,
+//             checkInTime: now,
+//             status,
+//             lateTime,
+//         });
+
+//         await attendance.save();
+
+//         res.status(201).json({
+//             message: "Attendance marked successfully.",
+//             attendance,
+//         });
+//     } catch (err) {
+//         console.error(err.message);
+//         res.status(500).json({ error: "An error occurred while marking attendance." });
+//     }
+// };
+
+
+
+
 const markAttendance = async (req, res) => {
     try {
         const employeeId = req.user.id;
-        const now = new Date();
+        const now = moment().tz("Asia/Kolkata"); // Use consistent time zone
 
         // Format date as YYYY-MM-DD for the `date` field
-        const currentDate = now.toISOString().split("T")[0];
+        const currentDate = now.format("YYYY-MM-DD");
 
         // Check if attendance already exists for the employee on the same date
         const existingRecord = await Attendance.findOne({
@@ -33,8 +127,8 @@ const markAttendance = async (req, res) => {
         // Check if the employee is on leave
         const leaveRecord = await Leave.findOne({
             employeeId,
-            startDate: { $lte: now },
-            endDate: { $gte: now },
+            startDate: { $lte: now.toDate() },
+            endDate: { $gte: now.toDate() },
             status: "approved",
         });
 
@@ -46,43 +140,34 @@ const markAttendance = async (req, res) => {
             });
         }
 
-        // Extract the time from the current date
-        const currentHour = now.getHours();
-        const officialStartTime = new Date(now);
-        officialStartTime.setHours(10, 0, 0); // Set to 10:00 AM
+        // Define weekly-off days (e.g., Sunday)
+        const weeklyOffDays = [0]; // Sunday is 0
+        const isWeeklyOff = weeklyOffDays.includes(now.day());
 
         // Default values
         let status = "absent";
         let lateTimeInMinutes = 0;
 
-        // Define weekly-off days (e.g., Sunday)
-        const weeklyOffDays = [0]; // Sunday is 0
-        const isWeeklyOff = weeklyOffDays.includes(now.getDay());
+        const officialStartTime = now.clone().set({ hour: 10, minute: 0, second: 0 });
 
         // Logic for determining status
         if (isWeeklyOff) {
             status = "weekly-off";
-        } else if (currentHour >= 6 && currentHour < 10) {
+        } else if (now.isSameOrBefore(officialStartTime)) {
             status = "present";
-            if (now > officialStartTime) {
-                lateTimeInMinutes = Math.floor((now - officialStartTime) / (60 * 1000));
-                if (lateTimeInMinutes > 0) {
-                    status = "late";
-                }
-            }
-        } else if (currentHour >= 10) {
-            status = "late";
-            lateTimeInMinutes = Math.floor((now - officialStartTime) / (60 * 1000));
+        } else {
+            lateTimeInMinutes = now.diff(officialStartTime, "minutes");
+            status = lateTimeInMinutes > 0 ? "late" : "present";
         }
 
-        // Format late time in "Xh Ym" format
-        const lateTime = formatTime(lateTimeInMinutes);
+        // Format late time
+        const lateTime = lateTimeInMinutes > 0 ? formatTime(lateTimeInMinutes) : "0h 0m";
 
         // Create new attendance record
         const attendance = new Attendance({
             employeeId,
             date: currentDate,
-            checkInTime: now,
+            checkInTime: now.toDate(),
             status,
             lateTime,
         });
@@ -98,6 +183,9 @@ const markAttendance = async (req, res) => {
         res.status(500).json({ error: "An error occurred while marking attendance." });
     }
 };
+
+module.exports = { markAttendance };
+
 
 
 // Clock out Attendance
