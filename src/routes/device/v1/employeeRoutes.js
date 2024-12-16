@@ -22,5 +22,6 @@ router.post("/employees/fake-leaves",  generateFakeData.insertFakeLeaveData);
 router.post("/employees/fake/attendance/monthly",  generateFakeData.insertNovemberAttendanceData);
 router.post("/employees/fake/Leaves/monthly",  generateFakeData.insertLeaveDataForAbsentEmployees);
 router.post("/employees/fake/employee",  generateFakeData.insertDummyEmployees);
+router.post("/employees/fake/attendance/mark-weekly-off",  generateFakeData.markWeeklyOffForAllEmployees);
 
 module.exports = router;

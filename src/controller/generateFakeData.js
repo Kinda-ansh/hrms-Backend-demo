@@ -5,8 +5,8 @@ const Leave = require("../model/Leave");
 const Attendance = require("../model/Attendance");
 const { faker } = require('@faker-js/faker');
 
-const moment = require("moment");
-
+// const moment = require("moment");
+const moment = require("moment-timezone");
 // Department IDs (these should already exist in your DB, adjust as necessary)
 const departmentIds = [
     mongoose.Types.ObjectId('673c51cfbb49ef24c2ce66e3'),
@@ -421,229 +421,6 @@ const calculateWorkingHours = (checkInTime, checkOutTime) => {
 };
 
 
-// const  insertMonthlyAttendanceData = async (req, res) => {
-//     try {
-//         // Fetch all employees
-//         const employees = await Employee.find();
-
-//         if (!employees.length) {
-//             return res.status(404).json({ message: "No employees found in the database." });
-//         }
-
-//         // Define the range for November 2024
-//         const fromDate = new Date('2024-11-01');
-//         const toDate = new Date('2024-11-30');
-
-//         // Generate all dates in November
-//         const allDatesInNovember = [];
-//         for (let date = fromDate; date <= toDate; date.setDate(date.getDate() + 1)) {
-//             allDatesInNovember.push(new Date(date));
-//         }
-
-//         const attendanceRecords = [];
-
-//         // Generate attendance for each employee for each day in November
-//         employees.forEach(employee => {
-//             allDatesInNovember.forEach(date => {
-//                 // Randomize attendance status
-//                 const status = faker.helpers.arrayElement(['present', 'absent', 'late']);
-
-//                 let checkInTime = null;
-//                 let checkOutTime = null;
-//                 let lateTime = '0m';
-//                 let totalWorkingHour = '0h 0m';
-
-//                 // Generate check-in and check-out times if the employee is present or late
-//                 if (status !== 'absent') {
-//                     checkInTime = new Date(date);
-//                     const checkInHour = faker.number.int({ min: 8, max: 11 }); // Random hour between 8 AM and 11 AM
-//                     const checkInMinute = faker.number.int({ min: 0, max: 59 });
-//                     checkInTime.setHours(checkInHour, checkInMinute, 0, 0);
-
-//                     // Determine if the employee is late
-//                     if (checkInTime.getHours() >= 10) {
-//                         lateTime = faker.helpers.arrayElement(['15m', '30m', '45m', '60m']);
-//                     }
-
-//                     checkOutTime = new Date(checkInTime);
-//                     checkOutTime.setHours(Math.min(checkInTime.getHours() + 9, 18)); // Limit working hours to max 9 hours
-//                     checkOutTime.setMinutes(faker.number.int({ min: 0, max: 59 }));
-
-//                     totalWorkingHour = calculateWorkingHoursForMonth(checkInTime, checkOutTime);
-//                 } else {
-//                     // If absent but checked in before 10 AM, mark as present
-//                     const absentCheckIn = new Date(date);
-//                     absentCheckIn.setHours(faker.number.int({ min: 8, max: 11 }), faker.number.int({ min: 0, max: 59 }), 0, 0);
-//                     if (absentCheckIn.getHours() < 10) {
-//                         checkInTime = absentCheckIn;
-//                         checkOutTime = new Date(absentCheckIn);
-//                         checkOutTime.setHours(Math.min(absentCheckIn.getHours() + 9, 18));
-//                         totalWorkingHour = calculateWorkingHoursForMonth(checkInTime, checkOutTime);
-//                     } else {
-//                         totalWorkingHour = '0h 0m';
-//                     }
-//                 }
-
-//                 // Push attendance record
-//                 attendanceRecords.push({
-//                     employeeId: employee._id,
-//                     date: new Date(date),
-//                     checkInTime: status === 'absent' && !checkInTime ? null : checkInTime,
-//                     checkOutTime: status === 'absent' && !checkOutTime ? null : checkOutTime,
-//                     totalWorkingHour: status === 'absent' && !checkInTime ? '0h 0m' : totalWorkingHour,
-//                     lateTime: status === 'absent' && !checkInTime ? '0m' : lateTime,
-//                     status: status === 'absent' && checkInTime ? 'present' : status,
-//                     createdAt: new Date(),
-//                     updatedAt: new Date(),
-//                 });
-//             });
-//         });
-
-//         // Bulk insert into the database
-//         await Attendance.insertMany(attendanceRecords);
-
-//         res.status(201).json({ message: "Monthly attendance records for November 2024 inserted successfully." });
-//     } catch (error) {
-//         console.error(error);
-//         res.status(500).json({ message: "An error occurred while inserting monthly attendance data." });
-//     }
-// };
-
-// Helper function to calculate total working hours
-
-
-
-
-// Controller to insert dummy data
-
-// const insertMonthlyAttendanceData = async (req, res) => {
-//     try {
-//         // Fetch all employees
-//         const employees = await Employee.find();
-
-//         if (!employees.length) {
-//             return res.status(404).json({ message: "No employees found in the database." });
-//         }
-
-//         // Define the range for November 2024
-//         const fromDate = new Date('2024-11-01');
-//         const toDate = new Date('2024-11-30');
-
-//         // Generate all dates in November
-//         const allDatesInNovember = [];
-//         for (let date = new Date(fromDate); date <= toDate; date.setDate(date.getDate() + 1)) {
-//             allDatesInNovember.push(new Date(date));
-//         }
-
-//         // Fetch approved leaves for November 2024
-//         const approvedLeaves = await Leave.find({
-//             status: 'approved',
-//             $or: [
-//                 { startDate: { $gte: fromDate, $lte: toDate } },
-//                 { endDate: { $gte: fromDate, $lte: toDate } },
-//                 { startDate: { $lte: fromDate }, endDate: { $gte: toDate } },
-//             ],
-//         });
-
-//         // Create a map for quick lookup of leave dates for each employee
-//         const leaveMap = {};
-//         approvedLeaves.forEach(leave => {
-//             const { employeeId, startDate, endDate } = leave;
-
-//             const effectiveStartDate = startDate < fromDate ? fromDate : startDate;
-//             const effectiveEndDate = endDate > toDate ? toDate : endDate;
-
-//             if (!leaveMap[employeeId]) {
-//                 leaveMap[employeeId] = new Set();
-//             }
-
-//             for (let date = new Date(effectiveStartDate); date <= effectiveEndDate; date.setDate(date.getDate() + 1)) {
-//                 leaveMap[employeeId].add(date.toDateString()); // Use toDateString for consistent date comparison
-//             }
-//         });
-
-//         const attendanceRecords = [];
-
-//         // Generate attendance for each employee for each day in November
-//         employees.forEach(employee => {
-//             allDatesInNovember.forEach(date => {
-//                 const dateString = date.toDateString();
-
-//                 if (leaveMap[employee._id]?.has(dateString)) {
-//                     // If the employee is on approved leave, mark attendance as "absent"
-//                     attendanceRecords.push({
-//                         employeeId: employee._id,
-//                         date: new Date(date),
-//                         checkInTime: null,
-//                         checkOutTime: null,
-//                         totalWorkingHour: '0h 0m',
-//                         lateTime: '0m',
-//                         status: 'absent', // Use 'absent' instead of 'on leave'
-//                         createdAt: new Date(),
-//                         updatedAt: new Date(),
-//                     });
-//                 } else {
-//                     // Randomize attendance status
-//                     const status = faker.helpers.arrayElement(['present', 'absent', 'late']);
-
-//                     let checkInTime = null;
-//                     let checkOutTime = null;
-//                     let lateTime = '0m';
-//                     let totalWorkingHour = '0h 0m';
-
-//                     // Generate check-in and check-out times if the employee is present or late
-//                     if (status !== 'absent') {
-//                         checkInTime = new Date(date);
-//                         const checkInHour = faker.number.int({ min: 8, max: 11 }); // Random hour between 8 AM and 11 AM
-//                         const checkInMinute = faker.number.int({ min: 0, max: 59 });
-//                         checkInTime.setHours(checkInHour, checkInMinute, 0, 0);
-
-//                         // Determine if the employee is late
-//                         if (checkInTime.getHours() >= 10) {
-//                             lateTime = faker.helpers.arrayElement(['15m', '30m', '45m', '60m']);
-//                         }
-
-//                         checkOutTime = new Date(checkInTime);
-//                         checkOutTime.setHours(Math.min(checkInTime.getHours() + 9, 18)); // Limit working hours to max 9 hours
-//                         checkOutTime.setMinutes(faker.number.int({ min: 0, max: 59 }));
-
-//                         totalWorkingHour = calculateWorkingHoursForMonth(checkInTime, checkOutTime);
-//                     }
-
-//                     // Push attendance record
-//                     attendanceRecords.push({
-//                         employeeId: employee._id,
-//                         date: new Date(date),
-//                         checkInTime: status === 'absent' ? null : checkInTime,
-//                         checkOutTime: status === 'absent' ? null : checkOutTime,
-//                         totalWorkingHour: status === 'absent' ? '0h 0m' : totalWorkingHour,
-//                         lateTime: status === 'absent' ? '0m' : lateTime,
-//                         status: status,
-//                         createdAt: new Date(),
-//                         updatedAt: new Date(),
-//                     });
-//                 }
-//             });
-//         });
-
-//         // Bulk insert into the database
-//         await Attendance.insertMany(attendanceRecords);
-
-//         res.status(201).json({ message: "Monthly attendance records for November 2024 inserted successfully." });
-//     } catch (error) {
-//         console.error(error);
-//         res.status(500).json({ message: "An error occurred while inserting monthly attendance data." });
-//     }
-// };
-
-// // Helper function to calculate total working hours
-// const calculateWorkingHoursForMonth = (checkInTime, checkOutTime) => {
-//     const diffInMilliseconds = checkOutTime - checkInTime;
-//     const diffInHours = Math.floor(diffInMilliseconds / (1000 * 60 * 60));
-//     const diffInMinutes = Math.floor((diffInMilliseconds % (1000 * 60 * 60)) / (1000 * 60));
-//     return `${diffInHours}h ${diffInMinutes}m`;
-// };
-
 const insertNovemberAttendanceData = async (req, res) => {
     try {
         // Fetch all employees
@@ -1015,6 +792,87 @@ const getRandomLeaveType = (employee) => {
 
 
 
+// Function to insert week-off status for all employees
+// controllers/attendanceController.js
 
 
-module.exports = {insertEmployees , insertLeaveData, insertDummyEmployees, insertAttendanceData,insertFakeAttendanceData, insertFakeLeaveData,  insertMonthlyFakeLeaveData , insertNovemberAttendanceData, insertLeaveDataForAbsentEmployees}
+// Controller function to mark weekly-off status for all eligible employees
+const markWeeklyOffForAllEmployees = async (req, res) => {
+    try {
+        // Define the timezone
+        const timezone = "Asia/Kolkata";
+
+        // Fetch all active employees
+        const employees = await Employee.find({ status: "active" });
+
+        if (!employees || employees.length === 0) {
+            return res.status(404).json({ message: "No active employees found." });
+        }
+
+        const recordsToInsert = []; // Array to hold new attendance records
+
+        // Iterate over each employee
+        for (const employee of employees) {
+            const employeeId = employee._id;
+
+            // Check for Saturdays and Sundays in the last 7 days (including today)
+            for (let i = 0; i <= 6; i++) {
+                // Create a new moment instance for each day
+                const currentDay = moment().tz(timezone).startOf("day").subtract(i, "days");
+                const dayOfWeek = currentDay.day(); // 0 = Sunday, 6 = Saturday
+
+                // Proceed only if the day is Saturday or Sunday
+                if (dayOfWeek === 0 || dayOfWeek === 6) {
+                    const currentDate = currentDay.toDate(); // Convert to JavaScript Date object
+
+                    // Check if an attendance record already exists for this employee on this date
+                    const existingAttendance = await Attendance.findOne({
+                        employeeId,
+                        date: currentDate,
+                    });
+
+                    // If no attendance record exists, prepare a new "weekly-off" record
+                    if (!existingAttendance) {
+                        recordsToInsert.push({
+                            employeeId,
+                            date: currentDate,
+                            status: "weekly-off",
+                            createdAt: new Date(), // Current timestamp
+                            updatedAt: new Date(), // Current timestamp
+                        });
+
+                        console.log(
+                            `Week-off marked for employee ${employee.firstName} ${employee.lastName} on ${currentDate.toISOString()}`
+                        );
+                    }
+                }
+            }
+        }
+
+        // Bulk insert all new "weekly-off" attendance records
+        if (recordsToInsert.length > 0) {
+            await Attendance.insertMany(recordsToInsert);
+            console.log(`Inserted ${recordsToInsert.length} week-off records successfully.`);
+        } else {
+            console.log("No new week-off records to insert.");
+        }
+
+        // Send a success response
+        res.status(200).json({
+            message: "Weekly-off status marked successfully for all eligible employees.",
+            insertedCount: recordsToInsert.length,
+        });
+    } catch (error) {
+        console.error("Error marking weekly-off status:", error.message);
+        res.status(500).json({ error: "An error occurred while marking weekly-off." });
+    }
+};
+
+
+
+
+// Call the function
+
+
+
+module.exports = {markWeeklyOffForAllEmployees, insertEmployees , insertLeaveData, insertDummyEmployees, insertAttendanceData,insertFakeAttendanceData, insertFakeLeaveData,  insertMonthlyFakeLeaveData , insertNovemberAttendanceData, insertLeaveDataForAbsentEmployees}
