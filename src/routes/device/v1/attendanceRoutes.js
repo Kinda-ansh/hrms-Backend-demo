@@ -7,6 +7,7 @@ const router = express.Router();
 router.get("/attendance", authMiddleware, roleMiddleware(["admin", "hr"]), attendanceController.getAllAttendance); 
 router.get("/attendance/mine", authMiddleware, roleMiddleware(["employee"]), attendanceController.getMyAttendance); 
 router.get("/attendance/calender", authMiddleware, roleMiddleware(["employee"]), attendanceController.getAttendanceForCalendar); 
+router.get("/attendance/today/all", authMiddleware, roleMiddleware(["admin", "hr"]), attendanceController.getAllEmployeesTodayAttendance); 
 router.get("/attendance/today/mine", authMiddleware, roleMiddleware(["employee"]), attendanceController.getMyTodayAttendance); 
 router.get("/attendance/date/:date", authMiddleware, roleMiddleware(["admin", "hr"]), attendanceController.getAttendanceByDate);
 router.get("/attendance/employee/:employeeId", authMiddleware, roleMiddleware(["admin", "hr"]), attendanceController.getEmployeeAttendance);  

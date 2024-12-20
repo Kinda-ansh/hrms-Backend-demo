@@ -15,6 +15,13 @@ const { ContactValidation } = require("../utils/validations/validation");
  */
 
 
+/**
+ * 
+ * @param {object} req 
+ * @param {*} res 
+ * @returns 
+ */
+
 const addContact = async (req, res) => {
   try {
     const {
