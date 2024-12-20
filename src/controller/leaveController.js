@@ -202,4 +202,44 @@ const deleteLeave = async (req, res) => {
     }
 };
 
-module.exports = { getAllLeaves, getLeaveById, getMyLeaves, requestLeave, updateLeaveStatus, deleteLeave };
+
+const getLeaveStatusById = async (req, res) => {
+    try {
+        // Fetch leave by ID
+        const leave = await Leave.findById(req.params.id)
+            .populate('employeeId', 'firstName lastName department')
+            .populate('approvedBy', 'firstName lastName');
+
+        if (!leave) {
+            return res.status(404).json({ message: 'Leave not found' });
+        }
+
+        // Structure the response
+        const response = {
+            leaveType: leave.leaveType,
+            startDate: leave.startDate,
+            endDate: leave.endDate,
+            reason: leave.reason,
+            status: leave.status,
+            employee: {
+                firstName: leave.employeeId.firstName,
+                lastName: leave.employeeId.lastName,
+                department: leave.employeeId.department,
+            },
+            approvedBy: leave.approvedBy ? {
+                firstName: leave.approvedBy.firstName,
+                lastName: leave.approvedBy.lastName,
+            } : null,
+            createdAt: leave.createdAt,
+            updatedAt: leave.updatedAt,
+        };
+
+        res.status(200).json(response);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+
+
+module.exports = { getAllLeaves, getLeaveById, getMyLeaves, requestLeave, updateLeaveStatus, deleteLeave, getLeaveStatusById };

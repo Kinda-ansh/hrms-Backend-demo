@@ -1,6 +1,7 @@
 const Attendance = require("../model/Attendance");
 const Leave = require("../model/Leave");
 const moment = require("moment-timezone");
+const Employee = require('../model/Employee');
 
 // Format time in "Xh Ym" format
 // const formatTime = (minutes) => {
@@ -341,7 +342,42 @@ const getAttendanceForCalendar = async (req, res) => {
     }
 };
 
+// ===============|| Get Employees Attendance For a Day|| ============================
 
+const getAllEmployeesTodayAttendance = async (req, res) => {
+    try {
+        // Get the start and end of the current day
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0); // Set time to 00:00:00
+        const todayEnd = new Date(todayStart);
+        todayEnd.setHours(23, 59, 59, 999); // Set time to 23:59:59
+
+        // Fetch all active employees
+        const activeEmployees = await Employee.find({ status: 'active' }).select('employeeId firstName lastName');
+
+        // Find attendance records for today, populate employee details
+        const attendances = await Attendance.find({
+            date: { $gte: todayStart, $lte: todayEnd }
+        }).populate('employeeId', 'employeeId firstName lastName department designation status');
+
+        // Map attendance records to get the employee IDs who marked attendance
+        const markedEmployeeIds = attendances.map((record) => record.employeeId.employeeId);
+
+        // Find employees who have not marked attendance
+        const notMarkedAttendance = activeEmployees.filter(
+            (employee) => !markedEmployeeIds.includes(employee.employeeId)
+        );
+
+        // Respond with attendance data and the list of employees who have not marked attendance
+        res.status(200).json({
+            message: 'Attendance data fetched successfully',
+            attendanceRecords: attendances,
+            notMarkedAttendance
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
 
 
 
@@ -355,5 +391,6 @@ module.exports = {
     getMyAttendance,
     getMyTodayAttendance,
     deleteAttendance,
-    getAttendanceForCalendar
+    getAttendanceForCalendar,
+    getAllEmployeesTodayAttendance
 };

@@ -10,6 +10,7 @@ router.get("/leaves/:id", authMiddleware, roleMiddleware(["admin", "hr", "employ
 router.post("/leaves/request", authMiddleware, roleMiddleware(["employee"]), leaveController.requestLeave); // Request leave
 router.put("/leaves/status/:id", authMiddleware, roleMiddleware(["admin", "hr"]), leaveController.updateLeaveStatus); // Approve/Reject leave
 router.delete("/leaves/:id", authMiddleware, roleMiddleware(["admin", "hr"]), leaveController.deleteLeave); // Delete leave
+router.get('/leaves/status/:id', leaveController.getLeaveStatusById);
 
 module.exports = router;
 
