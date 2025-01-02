@@ -116,10 +116,90 @@ const requestLeave = async (req, res) => {
 
 
 
+// const updateLeaveStatus = async (req, res) => {
+
+//     try {
+//         const { status } = req.body; // Expecting status ('approved' or 'rejected')
+//         const leave = await Leave.findById(req.params.id).populate('employeeId', 'employeeId firstName lastName sickLeave casualLeave totalLeaveTaken'); // Populate employee details to access leaveBalance
+
+//         if (!leave) {
+//             return res.status(404).json({ message: "Leave request not found" });
+//         }
+
+//         const employee = leave.employeeId; // The employee who requested the leave
+
+//         // Only HR/Admin can approve or reject leave
+//         if (status === 'approved') {
+//             // Check if employee has enough leave balance based on leave type
+//             if (leave.leaveType === 'sickLeave' && employee.sickLeave <= 0) {
+//                 return res.status(400).json({
+//                     message: "Insufficient sick leave balance to approve the leave"
+//                 });
+//             }
+//             if (leave.leaveType === 'casualLeave' && employee.casualLeave <= 0) {
+//                 return res.status(400).json({
+//                     message: "Insufficient casual leave balance to approve the leave"
+//                 });
+//             }
+
+//             // Check if the leave request exceeds monthly leave limit (4 leaves per month)
+//             const currentMonth = leave.startDate.getMonth(); // Get the month from startDate of leave
+//             const monthLeaves = await Leave.countDocuments({
+//                 employeeId: employee._id,
+//                 status: 'approved',
+//                 startDate: { $gte: new Date(currentMonth + "/01/2024"), $lt: new Date((currentMonth + 1) + "/01/2024") }
+//             });
+
+//             if (monthLeaves >= 4) {
+//                 return res.status(400).json({
+//                     message: "You have exceeded the maximum leave limit for this month (4 leaves)"
+//                 });
+//             }
+
+//             // Update employee's leave balance based on leave type
+//             if (leave.leaveType === 'sickLeave') {
+//                 employee.sickLeave -= 1; // Reduce the sick leave balance by 1
+//             } else if (leave.leaveType === 'casualLeave') {
+//                 employee.casualLeave -= 1; // Reduce the casual leave balance by 1
+//             }
+
+//             // Increase the total leave taken
+//             employee.totalLeaveTaken += 1;
+
+//             // Save updated employee record
+//             await employee.save();
+
+//             leave.status = 'approved';
+//             leave.approvedBy = req.user.id; // HR/Admin who approved the leave
+
+//         } else if (status === 'rejected') {
+//             leave.status = 'rejected';
+//         } else {
+//             return res.status(400).json({ message: "Invalid status" });
+//         }
+
+//         // Save the updated leave record
+//         await leave.save();
+
+//         res.status(200).json({
+//             message: `Leave ${status} successfully`,
+//             leave
+//         });
+//     } catch (error) {
+//         res.status(400).json({ message: error.message });
+//     }
+// };
+
+
+
+// Delete Leave
 const updateLeaveStatus = async (req, res) => {
     try {
         const { status } = req.body; // Expecting status ('approved' or 'rejected')
-        const leave = await Leave.findById(req.params.id).populate('employeeId', 'employeeId firstName lastName sickLeave casualLeave totalLeaveTaken'); // Populate employee details to access leaveBalance
+        const leave = await Leave.findById(req.params.id).populate(
+            'employeeId',
+            'employeeId firstName lastName sickLeave casualLeave totalLeaveTaken'
+        ); // Populate employee details to access leaveBalance
 
         if (!leave) {
             return res.status(404).json({ message: "Leave request not found" });
@@ -141,12 +221,17 @@ const updateLeaveStatus = async (req, res) => {
                 });
             }
 
-            // Check if the leave request exceeds monthly leave limit (4 leaves per month)
-            const currentMonth = leave.startDate.getMonth(); // Get the month from startDate of leave
+            // Check if the leave request exceeds the monthly leave limit (4 leaves per month)
+            const currentYear = leave.startDate.getFullYear();
+            const currentMonth = leave.startDate.getMonth(); // 0-based month (Jan = 0)
+
+            const startOfMonth = new Date(currentYear, currentMonth, 1);
+            const startOfNextMonth = new Date(currentYear, currentMonth + 1, 1);
+
             const monthLeaves = await Leave.countDocuments({
                 employeeId: employee._id,
                 status: 'approved',
-                startDate: { $gte: new Date(currentMonth + "/01/2024"), $lt: new Date((currentMonth + 1) + "/01/2024") }
+                startDate: { $gte: startOfMonth, $lt: startOfNextMonth }
             });
 
             if (monthLeaves >= 4) {
@@ -191,7 +276,6 @@ const updateLeaveStatus = async (req, res) => {
 
 
 
-// Delete Leave
 const deleteLeave = async (req, res) => {
     try {
         const leave = await Leave.findByIdAndDelete(req.params.id);
