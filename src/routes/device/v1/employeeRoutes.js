@@ -2,6 +2,7 @@ const express = require("express");
 const { authMiddleware, roleMiddleware } = require("../../../middleware/auth");
 const  employeeController  = require("../../../controller/employeeController");
 const  generateFakeData  = require("../../../controller/generateFakeData");
+const upload = require("../../../middleware/bulkInserFileMiddleware");
 const router = express.Router();
 
 // Example: Employees Routes
@@ -23,5 +24,9 @@ router.post("/employees/fake/attendance/monthly",  generateFakeData.insertNovemb
 router.post("/employees/fake/Leaves/monthly",  generateFakeData.insertLeaveDataForAbsentEmployees);
 router.post("/employees/fake/employee",  generateFakeData.insertDummyEmployees);
 router.post("/employees/fake/attendance/mark-weekly-off",  generateFakeData.markWeeklyOffForAllEmployees);
+
+// ==========|| buil insert ||=================
+router.post("/employees/bulk_upload", upload.single('file'), employeeController.bulkInsertEmployees);
+
 
 module.exports = router;

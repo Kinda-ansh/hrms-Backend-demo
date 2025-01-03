@@ -2,6 +2,349 @@ const Employee = require("../model/Employee");
 const jwt = require('jsonwebtoken');
 const { SECRET_KEY } = require("../utils/jwt");
 const { sendEmail } = require("../services/nodemailerService");
+const csvParser = require('csv-parser');
+const xlsx = require('xlsx');
+const fs = require('fs');
+const path = require('path');
+const Department = require('../model/Department')
+
+// ===========|| Bulk Employee creation ||==================
+
+
+// const bulkInsertEmployees = async (req, res) => {
+//     try {
+//         // Check if a file is uploaded
+//         if (!req.file) {
+//             return res.status(400).json({ error: 'No file uploaded.' });
+//         }
+
+//         const filePath = path.resolve(req.file.path); // Path to the uploaded file
+//         const employeesData = [];
+
+//         // Check file type and parse accordingly
+//         if (req.file.mimetype === 'text/csv') {
+//             // Parse CSV file
+//             await new Promise((resolve, reject) => {
+//                 fs.createReadStream(filePath)
+//                     .pipe(csvParser())
+//                     .on('data', (row) => employeesData.push(row))
+//                     .on('end', resolve)
+//                     .on('error', reject);
+//             });
+//         } else if (
+//             req.file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+//             req.file.mimetype === 'application/vnd.ms-excel'
+//         ) {
+//             // Parse XLS/XLSX file
+//             const workbook = xlsx.readFile(filePath);
+//             const sheetName = workbook.SheetNames[0]; // Assume data is in the first sheet
+//             const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+//             employeesData.push(...sheetData);
+//         } else {
+//             return res.status(400).json({ error: 'Invalid file format. Upload CSV or XLS/XLSX files only.' });
+//         }
+
+//         // Fetch employees (managers) from the database and create a mapping for managerId
+//         const employees = await Employee.find({});
+//         const employeeMap = {};
+//         employees.forEach((emp) => {
+//             employeeMap[emp.employeeId] = emp._id; // Mapping employeeId to _id
+//         });
+
+//         // Filter out invalid managerIds from the file data
+//         const validEmployees = employeesData.filter((row) => {
+//             // Check if managerId exists in the employee map
+//             if (row.managerId && employeeMap[row.managerId]) {
+//                 return true; // Valid managerId
+//             } else {
+//                 return false; // Invalid managerId (or no managerId)
+//             }
+//         });
+
+//         // If there were any invalid manager IDs, return them
+//         // const invalidManagerIds = employeesData
+//         //     .filter((row) => row.managerId && !employeeMap[row.managerId])
+//         //     .map((row) => row.managerId);
+
+//         // if (invalidManagerIds.length > 0) {
+//         //     return res.status(400).json({
+//         //         error: 'Some managerIds in the file do not exist in the database.',
+//         //         invalidManagers: invalidManagerIds,
+//         //     });
+//         // }
+
+//         // Fetch departments and create a map for department name to ObjectId
+//         const departments = await Department.find({});
+//         const departmentMap = {};
+//         departments.forEach((dep) => {
+//             departmentMap[dep.name] = dep._id; // Map department name to ObjectId
+//         });
+
+//         // Transform data and validate records
+//         const employeesToInsert = validEmployees.map((row) => {
+//             // const managerId = employeeMap[row.managerId] || null;
+//             const departmentId = departmentMap[row.department] || null;
+
+//             return {
+//                 employeeId: row.employeeId,
+//                 firstName: row.firstName,
+//                 lastName: row.lastName,
+//                 email: row.email,
+//                 phone: row.phone,
+//                 address: row.address,
+//                 department: departmentId, // Map department name to ObjectId
+//                 designation: row.designation,
+//                 dateOfJoining: new Date(row.dateOfJoining),
+//                 salary: parseFloat(row.salary),
+//                 sickLeave: parseInt(row.sickLeave || 4, 10),
+//                 casualLeave: parseInt(row.casualLeave || 8, 10),
+//                 // managerId: managerId, 
+//                 status: row.status || 'active',
+//                 role: row.role || 'employee',
+//                 profilePicture: row.profilePicture,
+//                 password: row.password,
+//             };
+//         });
+
+//         // Insert data into MongoDB
+//         const insertedEmployees = await Employee.insertMany(employeesToInsert);
+
+//         // Send welcome email to all employees
+//         for (const emp of insertedEmployees) {
+//             const emailData = {
+//                 firstName: emp.firstName,
+//                 email: emp.email,
+//                 password: emp.password,
+//                 loginUrl: "https://kinda-hrms-testing.netlify.app/login",
+//             };
+//             await sendEmail(emp.email, 'Welcome to Kinda HRMS', 'hrmsLogin', emailData);
+//         }
+
+//         // Delete the uploaded file after processing
+//         fs.unlinkSync(filePath);
+
+//         res.status(201).json({
+//             message: 'Employees inserted and emails sent successfully.',
+//             insertedCount: insertedEmployees.length,
+//             employees: insertedEmployees,
+//         });
+//     } catch (err) {
+//         console.error(err.message);
+//         res.status(500).json({ error: 'An error occurred while processing the file.' });
+//     }
+// };
+
+const bulkInsertEmployees = async (req, res) => {
+    try {
+        // Check if a file is uploaded
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded.' });
+        }
+
+        const filePath = path.resolve(req.file.path); // Path to the uploaded file
+        const employeesData = [];
+
+        // Check file type and parse accordingly
+        if (req.file.mimetype === 'text/csv') {
+            // Parse CSV file
+            await new Promise((resolve, reject) => {
+                fs.createReadStream(filePath)
+                    .pipe(csvParser())
+                    .on('data', (row) => employeesData.push(row))
+                    .on('end', resolve)
+                    .on('error', reject);
+            });
+        } else if (
+            req.file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+            req.file.mimetype === 'application/vnd.ms-excel'
+        ) {
+            // Parse XLS/XLSX file
+            const workbook = xlsx.readFile(filePath);
+            const sheetName = workbook.SheetNames[0]; // Assume data is in the first sheet
+            const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+            employeesData.push(...sheetData);
+        } else {
+            return res.status(400).json({ error: 'Invalid file format. Upload CSV or XLS/XLSX files only.' });
+        }
+
+        // Fetch departments and create a map for department name to ObjectId
+        const departments = await Department.find({});
+        const departmentMap = {};
+        departments.forEach((dep) => {
+            departmentMap[dep.name] = dep._id; // Map department name to ObjectId
+        });
+
+        // Transform data and validate records based on the new schema
+        const employeesToInsert = employeesData.map((row) => {
+            const departmentId = departmentMap[row.department] || null;
+
+            return {
+                employeeId: row.employeeId,
+                firstName: row.firstName,
+                lastName: row.lastName,
+                email: row.email,
+                phone: row.phone,
+                address: row.address,
+                department: departmentId, // Map department name to ObjectId
+                designation: row.designation,
+                dateOfJoining: new Date(row.dateOfJoining),
+                salary: parseFloat(row.salary),
+                sickLeave: parseInt(row.sickLeave || 4, 10),
+                casualLeave: parseInt(row.casualLeave || 8, 10),
+                status: row.status || 'active',
+                role: row.role || 'employee',
+                password: row.password,
+            };
+        });
+
+        // Insert data into MongoDB
+        const insertedEmployees = await Employee.insertMany(employeesToInsert);
+
+        // Send welcome email to all employees
+        for (const emp of insertedEmployees) {
+            const emailData = {
+                firstName: emp.firstName,
+                email: emp.email,
+                password: emp.password,
+                loginUrl: "https://kinda-hrms-testing.netlify.app/login",
+            };
+            await sendEmail(emp.email, 'Welcome to Kinda HRMS', 'hrmsLogin', emailData);
+        }
+
+        // Delete the uploaded file after processing
+        fs.unlinkSync(filePath);
+
+        res.status(201).json({
+            message: 'Employees inserted and emails sent successfully.',
+            insertedCount: insertedEmployees.length,
+            employees: insertedEmployees,
+        });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: 'An error occurred while processing the file.' });
+    }
+};
+
+
+
+// const bulkInsertEmployees = async (req, res) => {
+//     try {
+//         // Check if a file is uploaded
+//         if (!req.file) {
+//             return res.status(400).json({ error: 'No file uploaded.' });
+//         }
+
+//         const filePath = path.resolve(req.file.path); // Path to the uploaded file
+//         const employeesData = [];
+
+//         // Check file type and parse accordingly
+//         if (req.file.mimetype === 'text/csv') {
+//             // Parse CSV file
+//             await new Promise((resolve, reject) => {
+//                 fs.createReadStream(filePath)
+//                     .pipe(csvParser())
+//                     .on('data', (row) => employeesData.push(row))
+//                     .on('end', resolve)
+//                     .on('error', reject);
+//             });
+//         } else if (
+//             req.file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+//             req.file.mimetype === 'application/vnd.ms-excel'
+//         ) {
+//             // Parse XLS/XLSX file
+//             const workbook = xlsx.readFile(filePath);
+//             const sheetName = workbook.SheetNames[0]; // Assume data is in the first sheet
+//             const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+//             employeesData.push(...sheetData);
+//         } else {
+//             return res.status(400).json({ error: 'Invalid file format. Upload CSV or XLS/XLSX files only.' });
+//         }
+
+//         // Fetch employees (managers) from the database and create a mapping for managerId
+//         const employees = await Employee.find({});
+//         const employeeMap = {};
+//         employees.forEach((emp) => {
+//             employeeMap[emp.employeeId] = emp._id; // Mapping employeeId to _id
+//         });
+
+//         // Fetch departments and create a map for department name to ObjectId
+//         const departments = await Department.find({});
+//         const departmentMap = {};
+//         departments.forEach((dep) => {
+//             departmentMap[dep.name] = dep._id; // Map department name to ObjectId
+//         });
+
+//         // Transform data and validate records
+//         const employeesToInsert = employeesData.map((row) => {
+//             const managerId = employeeMap[row.managerId] || null;
+//             const departmentId = departmentMap[row.department] || null;
+
+//             return {
+//                 employeeId: row.employeeId,
+//                 firstName: row.firstName,
+//                 lastName: row.lastName,
+//                 email: row.email,
+//                 phone: row.phone,
+//                 address: row.address,
+//                 department: departmentId, // Map department name to ObjectId
+//                 designation: row.designation,
+//                 dateOfJoining: new Date(row.dateOfJoining),
+//                 salary: parseFloat(row.salary),
+//                 sickLeave: parseInt(row.sickLeave || 4, 10),
+//                 casualLeave: parseInt(row.casualLeave || 8, 10),
+//                 managerId: managerId, // Map managerId (employeeId) to ObjectId
+//                 status: row.status || 'active',
+//                 role: row.role || 'employee',
+//                 profilePicture: row.profilePicture,
+//                 password: row.password,
+//             };
+//         });
+
+//         // Validate managerIds
+//         const invalidManagers = employeesToInsert.filter((emp) => emp.managerId === null && emp.managerId !== undefined);
+//         if (invalidManagers.length > 0) {
+//             return res.status(400).json({
+//                 error: 'Some managerIds in the file do not exist in the database.',
+//                 invalidManagers: invalidManagers.map((emp) => emp.managerId),
+//             });
+//         }
+
+//         // Validate departmentIds
+//         const invalidDepartments = employeesToInsert.filter((emp) => emp.department === null && emp.department !== undefined);
+//         if (invalidDepartments.length > 0) {
+//             return res.status(400).json({
+//                 error: 'Some departments in the file do not exist in the database.',
+//                 invalidDepartments: invalidDepartments.map((emp) => emp.department),
+//             });
+//         }
+
+//         // Insert data into MongoDB
+//         const insertedEmployees = await Employee.insertMany(employeesToInsert);
+
+//         // Send welcome email to all employees
+//         for (const emp of insertedEmployees) {
+//             const emailData = {
+//                 firstName: emp.firstName,
+//                 email: emp.email,
+//                 password: emp.password,
+//                 loginUrl: "https://kinda-hrms-testing.netlify.app/login",
+//             };
+//             await sendEmail(emp.email, 'Welcome to Kinda HRMS', 'hrmsLogin', emailData);
+//         }
+
+//         // Delete the uploaded file after processing
+//         fs.unlinkSync(filePath);
+
+//         res.status(201).json({
+//             message: 'Employees inserted and emails sent successfully.',
+//             insertedCount: insertedEmployees.length,
+//             employees: insertedEmployees,
+//         });
+//     } catch (err) {
+//         console.error(err.message);
+//         res.status(500).json({ error: 'An error occurred while processing the file.' });
+//     }
+// };
 
 
 // Helper function to generate employeeId
@@ -270,5 +613,5 @@ const getMyProfile = async (req, res) => {
 };
 
 
-module.exports = {getAllEmployees, getEmployeeById, createEmployee, updateEmployee, deleteEmployee, loginEmployee, registerEmployee, getMyProfile}
+module.exports = {bulkInsertEmployees, getAllEmployees, getEmployeeById, createEmployee, updateEmployee, deleteEmployee, loginEmployee, registerEmployee, getMyProfile}
 

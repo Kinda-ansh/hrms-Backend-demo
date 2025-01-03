@@ -62,9 +62,9 @@ const employeeSchema = new mongoose.Schema({
     sickLeave: { type: Number, default: 4 },
     casualLeave: { type: Number, default: 8 },
     totalLeaveTaken: { type: Number, default: 0 },
-    managerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
+    // managerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
     status: { type: String, enum: ['active', 'inactive', 'on-Leave', 'weekly-off'], default: 'active' },
-    role: { type: String, enum: ['admin', 'hr', 'employee'], default: 'employee' },
+    role: { type: String, enum: ['admin', 'hr', 'employee', 'manager'], default: 'employee' },
     profilePicture: { type: String },
     password: { type: String, required: true },
 }, { timestamps: true, toJSON: { virtuals: true } });
