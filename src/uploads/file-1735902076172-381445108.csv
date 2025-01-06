@@ -1,0 +1,4 @@
+employeeId,firstName,lastName,email,phone,address,department,designation,dateOfJoining,salary,sickLeave,casualLeave,managerId,status,role,password
+EM01,John,Doe,john.doe@example.com,123-456-7890,123 Main St,IT,Developer,2023-01-15,60000,4,8,E001,active,employee,Doe
+EM004,Jane,Smith,jane.smith@example.com,234-567-8901,456 Elm St,HR,HR Manager,2023-02-20,75000,4,8,E002,active,employee,Smith
+EM005,Michael,Johnson,michael.johnson@example.com,345-678-9012,789 Oak St,Finance,Accountant,2023-03-25,80000,4,8,E003,inactive,manager,Johnson
