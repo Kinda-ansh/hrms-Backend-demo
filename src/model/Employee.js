@@ -70,7 +70,7 @@ const employeeSchema = new mongoose.Schema({
 }, { timestamps: true, toJSON: { virtuals: true } });
 
 employeeSchema.virtual('leaveBalance').get(function() {
-    return this.sickLeave + this.casualLeave; // Return the sum of sickLeave and casualLeave
+    return this.sickLeave + this.casualLeave; 
 });
 
 module.exports = mongoose.model('Employee', employeeSchema)

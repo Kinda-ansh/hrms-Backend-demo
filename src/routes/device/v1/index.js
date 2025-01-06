@@ -14,7 +14,6 @@ router.get("/", (req, res) => {
 });
 
 router.use(require("./CommonRoutes"));
-router.use(require("./FaqRoutes"));
 router.use(require("./ContactRoutes"));
 router.use(require("./adminRoutes"));
 router.use(require("./employeeRoutes"));

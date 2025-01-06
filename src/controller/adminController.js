@@ -6,38 +6,88 @@ const Leave = require('../model/Leave'); // Leave schema
 const Department = require('../model/Department'); // Leave schema
 
 // Get All Users
-const getAllUsers = async (req, res) => {
+
+// const getAllEmployees = async (req, res) => {
+//     try {
+//       const emp = await Employee.find({}, '-password').populate({
+//         path: 'department',
+//         select: 'name description managerId',
+//       });
+  
+//       res.status(200).json(emp);
+//     } catch (error) {
+//       res.status(500).json({ error: "Failed to fetch employees data!" });
+//     }
+//   };
+  
+const getAllEmployees = async (req, res) => {
     try {
-        const users = await Employee.find({}, "-password"); // Exclude password field
-        res.status(200).json(users);
+      const emp = await Employee.find({}, '-password')
+        .sort({ firstName: 1 }) // Sort alphabetically by 'firstName' in ascending order
+        .populate({
+          path: 'department',
+          select: 'name description managerId',
+        });
+  
+      res.status(200).json(emp);
     } catch (error) {
-        res.status(500).json({ error: "Failed to fetch users" });
+      res.status(500).json({ error: "Failed to fetch employees data!" });
     }
-};
+  };
+  
 
 // Update User Role
-const updateUserRole = async (req, res) => {
+// const updateEmployeeRole = async (req, res) => {
+//     const { id } = req.params;
+//     const { role } = req.body;
+
+//     if (!role) {
+//         return res.status(400).json({ error: "Role is required" });
+//     }
+
+//     try {
+//         const user = await Employee.findById(id);
+//         if (!user) {
+//             return res.status(404).json({ error: "User not found" });
+//         }
+
+//         Employee.role = role;
+//         await Employee.save();
+
+//         res.status(200).json({ message: "User role updated successfully", user });
+//     } catch (error) {
+//         res.status(500).json({ error: "Failed to update user role" });
+//     }
+// };
+const updateEmployeeRole = async (req, res) => {
     const { id } = req.params;
     const { role } = req.body;
 
+    // Validate the role in the request body
     if (!role) {
         return res.status(400).json({ error: "Role is required" });
     }
 
     try {
+        // Find the employee by ID
         const user = await Employee.findById(id);
         if (!user) {
             return res.status(404).json({ error: "User not found" });
         }
 
-        Employee.role = role;
-        await Employee.save();
+        // Update the role
+        user.role = role;
+        await user.save(); // Save the updated document
 
         res.status(200).json({ message: "User role updated successfully", user });
     } catch (error) {
+        console.error("Error updating user role:", error); // Log for debugging
         res.status(500).json({ error: "Failed to update user role" });
     }
 };
+
+
+
 
 // Delete User
 const deleteUser = async (req, res) => {
@@ -756,11 +806,12 @@ const getAdminDashboardData = async (req, res) => {
 
 
 module.exports = {
-    getAllUsers,
-    updateUserRole,
+
+    updateEmployeeRole,
     deleteUser,
     getAllEmployeeDetail,
     getMonthlyEmployeeDetails,
     downloadEmployeeDetails,
-    getAdminDashboardData
+    getAdminDashboardData,
+    getAllEmployees
 };
