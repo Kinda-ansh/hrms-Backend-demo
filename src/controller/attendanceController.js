@@ -114,54 +114,55 @@ const markAttendance = async (req, res) => {
 // ===========================|| Cron for auto Logout at 11:30PM ||==================
 
 
-cron.schedule("30 23 * * *", async () => {
-  try {
-    const now = moment().tz("Asia/Kolkata");
-    const currentDate = now.format("YYYY-MM-DD");
+// cron.schedule("09 15 * * *", async () => {
+//   try {
+//     const now = moment().tz("Asia/Kolkata");
+//     const currentDate = now.format("YYYY-MM-DD");
 
-    console.log(`Running auto-logout cron job at: ${now.format("HH:mm:ss")}`);
+//     console.log(`Running auto-logout cron job at: ${now.format("HH:mm:ss")}`);
 
-    // Fetch all employees
-    const employees = await Employee.find({}); // Adjust query if needed to filter active employees
+//     // Fetch all employees
+//     const employees = await Employee.find({}); // Adjust query if needed to filter active employees
 
-    for (const employee of employees) {
-      // Check attendance record for the current employee
-      const attendanceRecord = await Attendance.findOne({
-        date: currentDate,
-        employeeId: employee._id,
-      });
+//     for (const employee of employees) {         // Check attendance record for the current employee
+//       const attendanceRecord = await Attendance.findOne({
+//         date: currentDate,
+//         employeeId: employee._id,
+//       });
 
-      if (attendanceRecord) {
-        // Auto-checkout if the employee checked in but didn't check out
-        if (attendanceRecord.checkInTime && !attendanceRecord.checkOutTime) {
-          const checkOutTime = now.toDate();
-          const checkInTime = moment(attendanceRecord.checkInTime);
+//       if (attendanceRecord) {
+//         // Auto-checkout if the employee checked in but didn't check out
+//         if (attendanceRecord.checkInTime && !attendanceRecord.checkOutTime) {
+//           const checkOutTime = now.toDate();
+//           const checkInTime = moment(attendanceRecord.checkInTime);
 
-          // Calculate total working time in minutes
-          const workingMinutes = moment(checkOutTime).diff(checkInTime, "minutes");
+//           // Calculate total working time in minutes
+//           const workingMinutes = moment(checkOutTime).diff(checkInTime, "minutes");
 
-          // Update only checkOutTime and totalWorkingTime without modifying status
-          await Attendance.findByIdAndUpdate(attendanceRecord._id, {
-            checkOutTime,
-            totalWorkingTime: formatTime(workingMinutes),
-          });
+//           // Update only checkOutTime and totalWorkingTime without modifying status
+//           await Attendance.findByIdAndUpdate(attendanceRecord._id, {
+//             checkOutTime,
+//             totalWorkingTime: formatTime(workingMinutes),
+//           });
 
-          console.log(`Auto-checked out employee ID: ${employee._id}`);
-        } else {
-          console.log(
-            `Employee ID: ${employee._id} already checked out or has no check-in time.`
-          );
-        }
-      } else {
-        console.log(`No attendance record for employee ID: ${employee._id}, skipping.`);
-      }
-    }
+//           console.log(`Auto-checked out employee ID: ${employee._id}`);
+//         } 
+       
+//         else {
+//           console.log(
+//             `Employee ID: ${employee._id} already checked out or has no check-in time.`
+//           );
+//         }
+//       } else {
+//         console.log(`No attendance record for employee ID: ${employee._id}, skipping.`);
+//       }
+//     }
 
-    console.log("Auto-logout process completed.");
-  } catch (err) {
-    console.error("Error occurred during auto-logout:", err.message);
-  }
-});
+//     console.log("Auto-logout process completed.");
+//   } catch (err) {
+//     console.error("Error occurred during auto-logout:", err.message);
+//   }
+// });
 
 
 

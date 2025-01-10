@@ -23,6 +23,7 @@ router.use(require("./leaveRoutes"));
 router.use(require("./payrollRoutes"));
 router.use(require("./performanceRoutes"));
 router.use(require("./settingsRoutes"));
+router.use(require("./ticketRoutes"));
 
 
 module.exports = router;

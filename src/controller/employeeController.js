@@ -360,12 +360,28 @@ const generateEmployeeId = () => {
 
 
 // Get All Employees
+// const getAllEmployees = async (req, res) => {
+//     try {
+//         const employees = await Employee.find().populate('department', 'name');
+//         if(!employees){
+//             res.status(400).json({message: "No data fount" });
+//         }
+//         res.status(200).json(employees);
+//     } catch (err) {
+//         res.status(500).json({ error: err.message });
+//     }
+// };
 const getAllEmployees = async (req, res) => {
     try {
-        const employees = await Employee.find().populate('department', 'name');
-        if(!employees){
-            res.status(400).json({message: "No data fount" });
+        // Fetch all employees, excluding the one with employeeId "RW7446"
+        const employees = await Employee.find({ employeeId: { $ne: "RW7446" } })
+            .populate('department', 'name') // Populate department with only name field
+            .sort({ firstName: 1 }); // Sort alphabetically by firstName
+
+        if (!employees || employees.length === 0) {
+            return res.status(400).json({ message: "No data found" });
         }
+
         res.status(200).json(employees);
     } catch (err) {
         res.status(500).json({ error: err.message });
