@@ -6,7 +6,7 @@ const upload = require("../../../middleware/bulkInserFileMiddleware");
 const router = express.Router();
 
 // Example: Employees Routes
-router.get("/employees", authMiddleware, roleMiddleware(["admin", "hr", 'manager']), employeeController.getAllEmployees);
+router.get("/employees", authMiddleware, roleMiddleware(["admin", "hr", 'manager', "employee"]), employeeController.getAllEmployees);
 router.get("/employees/:id", authMiddleware, roleMiddleware(["admin", "hr", "employee", 'manager']), employeeController.getEmployeeById);
 router.get("/myprofile", authMiddleware, roleMiddleware(["admin", "hr", "employee", 'manager']), employeeController.getMyProfile);
 router.post("/employees", authMiddleware, roleMiddleware(["admin", "hr", 'manager']), employeeController.createEmployee);

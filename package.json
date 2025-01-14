@@ -36,6 +36,7 @@
     "firebase": "^10.12.4",
     "firebase-admin": "^12.6.0",
     "formidable": "^3.5.1",
+    "geolib": "^3.3.4",
     "http-errors": "^2.0.0",
     "image-size": "^1.1.1",
     "joi": "^17.13.1",
