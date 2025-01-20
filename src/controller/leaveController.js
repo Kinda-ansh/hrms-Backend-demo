@@ -27,6 +27,7 @@ const getLeaveById = async (req, res) => {
     }
 };
 
+
 // Get My Leaves
 const getMyLeaves = async (req, res) => {
     try {
@@ -300,8 +301,6 @@ const updateLeaveStatus = async (req, res) => {
 
 
 
-
-
 const deleteLeave = async (req, res) => {
     try {
         const leave = await Leave.findByIdAndDelete(req.params.id);
@@ -352,4 +351,4 @@ const getLeaveStatusById = async (req, res) => {
 
 
 
-module.exports = { getAllLeaves, getLeaveById, getMyLeaves, requestLeave, updateLeaveStatus, deleteLeave, getLeaveStatusById };
+module.exports = { getAllLeaves, getLeaveById, getMyLeaves, requestLeave, updateLeaveStatus, deleteLeave, getLeaveStatusById,  };

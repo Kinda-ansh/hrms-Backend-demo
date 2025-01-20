@@ -24,7 +24,7 @@ const attendanceSchema = new mongoose.Schema({
     checkOutTime: { type: Date },
     totalWorkingHour: { type: String }, // Stored as a string (e.g., "8h 30m")
     lateTime: { type: String }, // Stored as a string (e.g., "30m")
-    status: { type: String, enum: ['present', 'absent', 'late', 'weekly-off', 'on-leave', 'pending'], required: true },
+    status: { type: String, enum: ['present', 'absent', 'late', 'weekly-off', 'on-leave', 'pending', 'pending-leave'], required: true },
     createdAt: { type: Date, default: Date.now }, 
     updatedAt: { type: Date, default: Date.now }, 
 }, { timestamps: false }); 

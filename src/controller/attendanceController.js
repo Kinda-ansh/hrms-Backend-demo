@@ -3,6 +3,8 @@ const Leave = require("../model/Leave");
 const moment = require("moment-timezone");
 const Employee = require("../model/Employee");
 const cron = require("node-cron");
+const { getDistance } = require("geolib");
+const { getPreciseDistance } = require("geolib");
 
 const formatTime = (workingMinutes) => {
   const hours = Math.floor(workingMinutes / 60); // Get whole hours
@@ -11,6 +13,125 @@ const formatTime = (workingMinutes) => {
   // Return formatted time as "Xh Ym"
   return `${hours}h ${minutes}m`;
 };
+
+const OFFICE_LOCATION = {
+  latitude:25.363274, 
+  longitude: 83.0256866, 
+};
+const ALLOWED_DISTANCE = 50; 
+
+
+// ======================= Attendance with location 
+// const markAttendance = async (req, res) => {
+//   try {
+//     const employeeId = req.user.id;
+//     const now = moment().tz("Asia/Kolkata");
+//     const currentDate = now.format("YYYY-MM-DD");
+
+//     // Extract user's location from request body
+//     const { latitude, longitude } = req.body;
+
+//     if (!latitude || !longitude) {
+//       return res.status(400).json({ message: "Location data is required." });
+//     }
+
+//     // Calculate distance from the office
+//     const distance = getPreciseDistance(
+//       { latitude: parseFloat(latitude), longitude: parseFloat(longitude) },
+//       { latitude: OFFICE_LOCATION.latitude, longitude: OFFICE_LOCATION.longitude }
+//     );
+
+//     console.log(`Calculated Distance: ${distance} meters`);
+
+//     if (distance > ALLOWED_DISTANCE) {
+//       return res.status(403).json({
+//         message: "You are out of the allowed range to mark attendance.",
+//         distance,
+//       });
+//     }
+
+//     // Proceed with the rest of the attendance logic
+//     // ...
+
+//     const existingRecord = await Attendance.findOne({
+//       employeeId,
+//       date: currentDate,
+//     });
+
+//     if (existingRecord) {
+//       return res.status(200).json({
+//         message: "Attendance already marked successfully for today.",
+//         attendance: existingRecord,
+//       });
+//     }
+
+//     const weeklyOffDays = [0, 6];
+//     const isWeeklyOff = weeklyOffDays.includes(now.day());
+
+//     const leaveRecord = await Leave.findOne({
+//       employeeId,
+//       startDate: { $lte: now.toDate() },
+//       endDate: { $gte: now.toDate() },
+//       status: "approved",
+//     });
+
+//     if (leaveRecord) {
+//       return res.status(200).json({
+//         message: "Employee is on leave today.",
+//         status: "on-leave",
+//         leaveRecord,
+//       });
+//     }
+
+//     if (isWeeklyOff) {
+//       const attendance = new Attendance({
+//         employeeId,
+//         date: currentDate,
+//         status: "weekly-off",
+//       });
+//       await attendance.save();
+
+//       return res.status(201).json({
+//         message: "Attendance marked as weekly-off for today.",
+//         attendance,
+//       });
+//     }
+
+//     let status = "absent";
+//     let lateTimeInMinutes = 0;
+//     const officialStartTime = now.clone().set({ hour: 10, minute: 0, second: 0 });
+
+//     if (now.isSameOrBefore(officialStartTime)) {
+//       status = "present";
+//     } else {
+//       lateTimeInMinutes = now.diff(officialStartTime, "minutes");
+//       status = lateTimeInMinutes > 0 ? "late" : "present";
+//     }
+
+//     const lateTime =
+//       lateTimeInMinutes > 0 ? formatTime(lateTimeInMinutes) : "0h 0m";
+
+//     const attendance = new Attendance({
+//       employeeId,
+//       date: currentDate,
+//       checkInTime: now.toDate(),
+//       status,
+//       lateTime,
+//     });
+
+//     await attendance.save();
+
+//     res.status(201).json({
+//       message: "Attendance marked successfully.",
+//       attendance,
+//     });
+//   } catch (err) {
+//     console.error(err.message);
+//     res.status(500).json({ error: "An error occurred while marking attendance." });
+//   }
+// };
+
+
 
 const markAttendance = async (req, res) => {
   try {
@@ -114,59 +235,61 @@ const markAttendance = async (req, res) => {
 // ===========================|| Cron for auto Logout at 11:30PM ||==================
 
 
-// cron.schedule("09 15 * * *", async () => {
-//   try {
-//     const now = moment().tz("Asia/Kolkata");
-//     const currentDate = now.format("YYYY-MM-DD");
+cron.schedule("30 23 * * *", async () => { 
+  try {
+    const now = moment().tz("Asia/Kolkata");
+    const currentDate = now.format("YYYY-MM-DD");
 
-//     console.log(`Running auto-logout cron job at: ${now.format("HH:mm:ss")}`);
+    console.log(`Running auto-logout cron job at: ${now.format("HH:mm:ss")} IST`);
 
-//     // Fetch all employees
-//     const employees = await Employee.find({}); // Adjust query if needed to filter active employees
+    // Fetch all employees
+    const employees = await Employee.find({}); // Adjust query if needed to filter active employees
 
-//     for (const employee of employees) {         // Check attendance record for the current employee
-//       const attendanceRecord = await Attendance.findOne({
-//         date: currentDate,
-//         employeeId: employee._id,
-//       });
+    for (const employee of employees) {         
+      // Check attendance record for the current employee
+      const attendanceRecord = await Attendance.findOne({
+        date: currentDate,
+        employeeId: employee._id,
+      });
 
-//       if (attendanceRecord) {
-//         // Auto-checkout if the employee checked in but didn't check out
-//         if (attendanceRecord.checkInTime && !attendanceRecord.checkOutTime) {
-//           const checkOutTime = now.toDate();
-//           const checkInTime = moment(attendanceRecord.checkInTime);
+      if (attendanceRecord) {
+        // Auto-checkout if the employee checked in but didn't check out
+        if (attendanceRecord.checkInTime && !attendanceRecord.checkOutTime) {
+          const checkOutTime = now.toDate();
+          const checkInTime = moment(attendanceRecord.checkInTime);
 
-//           // Calculate total working time in minutes
-//           const workingMinutes = moment(checkOutTime).diff(checkInTime, "minutes");
+          // Calculate total working time in minutes
+          const workingMinutes = moment(checkOutTime).diff(checkInTime, "minutes");
 
-//           // Update only checkOutTime and totalWorkingTime without modifying status
-//           await Attendance.findByIdAndUpdate(attendanceRecord._id, {
-//             checkOutTime,
-//             totalWorkingTime: formatTime(workingMinutes),
-//           });
+          // Update checkOutTime and totalWorkingTime without modifying status
+          await Attendance.findByIdAndUpdate(attendanceRecord._id, {
+            checkOutTime,
+            totalWorkingTime: formatTime(workingMinutes),
+          });
 
-//           console.log(`Auto-checked out employee ID: ${employee._id}`);
-//         } 
-       
-//         else {
-//           console.log(
-//             `Employee ID: ${employee._id} already checked out or has no check-in time.`
-//           );
-//         }
-//       } else {
-//         console.log(`No attendance record for employee ID: ${employee._id}, skipping.`);
-//       }
-//     }
+          console.log(`Auto-checked out employee ID: ${employee._id}`);
+        } else {
+          console.log(
+            `Employee ID: ${employee._id} already checked out or has no check-in time.`
+          );
+        }
+      } else {
+        console.log(`No attendance record for employee ID: ${employee._id}, skipping.`);
+      }
+    }
 
-//     console.log("Auto-logout process completed.");
-//   } catch (err) {
-//     console.error("Error occurred during auto-logout:", err.message);
-//   }
-// });
+    console.log("Auto-logout process completed.");
+  } catch (err) {
+    console.error("Error occurred during auto-logout:", err.message);
+  }
+}, {
+  timezone: "Asia/Kolkata", // Force the cron job to run at IST
+});
 
 
 
 // Clock out Attendance
+
 
 const markCheckOut = async (req, res) => {
   try {
@@ -425,27 +548,43 @@ const deleteAttendance = async (req, res) => {
 //     }
 // };
 // ========================
+
+
 // const getAttendanceForCalendar = async (req, res) => {
 //   try {
 //     const employeeId = req.user.id; // Authenticated employee's ID
 
-//     // Get the current date and calculate the start and end of the month
+//     // Get the current date and calculate the start and end of the current and previous month
 //     const now = new Date();
-//     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-//     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+//     const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+//     const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-//     // Fetch attendance records for the entire month
+//     const startOfPreviousMonth = new Date(
+//       now.getFullYear(),
+//       now.getMonth() - 1,
+//       1
+//     );
+//     const endOfPreviousMonth = new Date(
+//       now.getFullYear(),
+//       now.getMonth(),
+//       0
+//     );
+
+//     // Fetch attendance records for the current and previous month
 //     const attendanceRecords = await Attendance.find({
 //       employeeId,
-//       date: { $gte: startOfMonth, $lte: endOfMonth },
+//       date: { $gte: startOfPreviousMonth, $lte: endOfCurrentMonth },
 //     });
 
-//     // Fetch approved leave records for the entire month
+//     // Fetch approved leave records for the current and previous month
 //     const leaveRecords = await Leave.find({
 //       employeeId,
 //       status: "approved",
 //       $or: [
-//         { startDate: { $lte: endOfMonth }, endDate: { $gte: startOfMonth } }, // Leave spans the month
+//         {
+//           startDate: { $lte: endOfCurrentMonth },
+//           endDate: { $gte: startOfPreviousMonth },
+//         }, // Leave spans both months
 //       ],
 //     });
 
@@ -460,10 +599,10 @@ const deleteAttendance = async (req, res) => {
 //     // Process leave records
 //     leaveRecords.forEach((leave) => {
 //       let currentDate = new Date(
-//         leave.startDate > startOfMonth ? leave.startDate : startOfMonth
+//         leave.startDate > startOfPreviousMonth ? leave.startDate : startOfPreviousMonth
 //       );
 //       const leaveEndDate =
-//         leave.endDate < endOfMonth ? leave.endDate : endOfMonth;
+//         leave.endDate < endOfCurrentMonth ? leave.endDate : endOfCurrentMonth;
 
 //       while (currentDate <= leaveEndDate) {
 //         const dateKey = currentDate.toISOString().split("T")[0];
@@ -492,6 +631,9 @@ const deleteAttendance = async (req, res) => {
 //       } else if (record.status === "pending") {
 //         backgroundColor = "#ffeb3b"; // Yellow for "pending"
 //       }
+//       else if (record.status === "on-leave") {
+//         backgroundColor = "#17a2b8"; // Yellow for "pending"
+//       }
 
 //       events.push({
 //         title: record.status.replace(/-/g, " ").toUpperCase(), // Status formatted for display
@@ -502,33 +644,36 @@ const deleteAttendance = async (req, res) => {
 //       });
 //     });
 
-//     // Add default weekly-offs for the entire month
-  
-//     let currentDate = new Date(startOfMonth);
-//     while (currentDate <= endOfMonth) {
-//       // Normalize the date to midnight UTC to avoid time zone issues
-//       const normalizedDate = new Date(
-//         Date.UTC(
-//           currentDate.getFullYear(),
-//           currentDate.getMonth(),
-//           currentDate.getDate()
-//         )
-//       );
-//       const day = normalizedDate.getDay(); // 0: Sunday, 6: Saturday
-//       const dateKey = normalizedDate.toISOString().split("T")[0];
+//     // Add default weekly-offs for the previous and current month
+//     const addWeeklyOffs = (start, end) => {
+//       let currentDate = new Date(start);
+//       while (currentDate <= end) {
+//         const normalizedDate = new Date(
+//           Date.UTC(
+//             currentDate.getFullYear(),
+//             currentDate.getMonth(),
+//             currentDate.getDate()
+//           )
+//         );
+//         const day = normalizedDate.getDay(); // 0: Sunday, 6: Saturday
+//         const dateKey = normalizedDate.toISOString().split("T")[0];
 
-//       if ((day === 0 || day === 6) && !attendanceMap[dateKey]) {
-//         events.push({
-//           title: "WEEKLY OFF",
-//           date: dateKey,
-//           backgroundColor: "#9e9e9e", // Grey for weekly-off
-//           borderColor: "transparent",
-//           textColor: "white",
-//         });
+//         if ((day === 0 || day === 6) && !attendanceMap[dateKey]) {
+//           events.push({
+//             title: "WEEKLY OFF",
+//             date: dateKey,
+//             backgroundColor: "#9e9e9e", // Grey for weekly-off
+//             borderColor: "transparent",
+//             textColor: "white",
+//           });
+//         }
+
+//         currentDate.setDate(currentDate.getDate() + 1);
 //       }
+//     };
 
-//       currentDate.setDate(currentDate.getDate() + 1);
-//     }
+//     addWeeklyOffs(startOfPreviousMonth, endOfPreviousMonth);
+//     addWeeklyOffs(startOfCurrentMonth, endOfCurrentMonth);
 
 //     res.status(200).json({
 //       message: "Attendance data fetched successfully.",
@@ -540,10 +685,6 @@ const deleteAttendance = async (req, res) => {
 //   }
 // };
 
-
-
-
-// ===============|| Get Employees Attendance For a Day|| ============================
 const getAttendanceForCalendar = async (req, res) => {
   try {
     const employeeId = req.user.id; // Authenticated employee's ID
@@ -570,15 +711,14 @@ const getAttendanceForCalendar = async (req, res) => {
       date: { $gte: startOfPreviousMonth, $lte: endOfCurrentMonth },
     });
 
-    // Fetch approved leave records for the current and previous month
+    // Fetch leave records for the current and previous month
     const leaveRecords = await Leave.find({
       employeeId,
-      status: "approved",
       $or: [
         {
           startDate: { $lte: endOfCurrentMonth },
           endDate: { $gte: startOfPreviousMonth },
-        }, // Leave spans both months
+        },
       ],
     });
 
@@ -600,11 +740,22 @@ const getAttendanceForCalendar = async (req, res) => {
 
       while (currentDate <= leaveEndDate) {
         const dateKey = currentDate.toISOString().split("T")[0];
-        if (!attendanceMap[dateKey]) {
+        if (!attendanceMap[dateKey] || leave.status === "approved") {
+          let backgroundColor = "#17a2b8"; // Default: Blue for "on-leave"
+          let title = "ON LEAVE";
+
+          if (leave.status === "pending") {
+            backgroundColor = "#ffeb3b"; // Yellow for pending leave
+            title = "PENDING LEAVE";
+          } else if (leave.status === "rejected") {
+            backgroundColor = "#f29e96"; // Grey for rejected leave
+            title = "LEAVE REJECTED";
+          }
+
           events.push({
-            title: "ON LEAVE",
+            title,
             date: dateKey,
-            backgroundColor: "#f44336", // Red for "on-leave"
+            backgroundColor,
             borderColor: "transparent",
             textColor: "white",
           });
@@ -624,6 +775,8 @@ const getAttendanceForCalendar = async (req, res) => {
         backgroundColor = "#f44336"; // Red for "absent"
       } else if (record.status === "pending") {
         backgroundColor = "#ffeb3b"; // Yellow for "pending"
+      } else if (record.status === "on-leave") {
+        backgroundColor = "#17a2b8"; // Blue for "on-leave"
       }
 
       events.push({
@@ -667,7 +820,7 @@ const getAttendanceForCalendar = async (req, res) => {
     addWeeklyOffs(startOfCurrentMonth, endOfCurrentMonth);
 
     res.status(200).json({
-      message: "Attendance data fetched successfully.",
+      message: "Attendance and leave data fetched successfully.",
       events,
     });
   } catch (err) {
