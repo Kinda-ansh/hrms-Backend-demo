@@ -413,12 +413,37 @@ const getAllAttendance = async (req, res) => {
 };
 
 // Get Logged-In Employee's Attendance
+// const getMyAttendance = async (req, res) => {
+//   try {
+//     const employeeId = req.user.id; // Assuming `req.user` has authenticated user's data
+    
+//     // Fetch attendance records sorted by date in descending order
+//     const attendance = await Attendance.find({ employeeId })
+//       .populate("employeeId", "employeeId firstName")
+//       .sort({ date: -1 }); // Sort by date in descending order (-1 for descending)
+
+//     res.status(200).json(attendance);
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// };
+
 const getMyAttendance = async (req, res) => {
   try {
     const employeeId = req.user.id; // Assuming `req.user` has authenticated user's data
-    
-    // Fetch attendance records sorted by date in descending order
-    const attendance = await Attendance.find({ employeeId })
+
+    // Get the start and end dates of the current month
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1); // First day of the month
+    const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0); // Last day of the month
+
+    // Fetch attendance records for the current month sorted by date in descending order
+    const attendance = await Attendance.find({
+      employeeId,
+      date: {
+        $gte: startOfMonth, // Greater than or equal to the start of the month
+        $lte: endOfMonth,  // Less than or equal to the end of the month
+      },
+    })
       .populate("employeeId", "employeeId firstName")
       .sort({ date: -1 }); // Sort by date in descending order (-1 for descending)
 
@@ -427,6 +452,7 @@ const getMyAttendance = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 // Get Logged-In Employee's Attendance for Today
 const getMyTodayAttendance = async (req, res) => {
