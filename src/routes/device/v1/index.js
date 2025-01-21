@@ -4,7 +4,6 @@
  */
 
 const express = require("express");
-const { sendWelcomeEmail } = require("../../../controller/emailController");
 const router = express.Router();
 
 router.get("/", (req, res) => {

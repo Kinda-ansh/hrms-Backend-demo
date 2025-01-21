@@ -376,6 +376,8 @@ const getAllEmployees = async (req, res) => {
         // Fetch all employees, excluding the one with employeeId "RW7446"
         const employees = await Employee.find({ employeeId: { $ne: "RW7446" } })
             .populate('department', 'name') // Populate department with only name field
+            .populate('level1ReportingManager', 'firstName lastName role') // Populate Level 1 Manager with specific fields
+            .populate('level2ReportingManager', 'firstName lastName role') // Populate Level 2 Manager with specific fields
             .sort({ firstName: 1 }); // Sort alphabetically by firstName
 
         if (!employees || employees.length === 0) {
@@ -391,13 +393,19 @@ const getAllEmployees = async (req, res) => {
 // Get Employee By ID
 const getEmployeeById = async (req, res) => {
     try {
-        const employee = await Employee.findById(req.params.id).populate('department', 'name');
+        const employee = await Employee.findById(req.params.id)
+            .populate('department', 'name') // Populate department with only name field
+            .populate('level1ReportingManager', 'firstName lastName role') // Populate Level 1 Manager with specific fields
+            .populate('level2ReportingManager', 'firstName lastName role'); // Populate Level 2 Manager with specific fields
+
         if (!employee) return res.status(404).json({ message: "Employee not found" });
+
         res.status(200).json(employee);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 };
+
 
 // Add New Employee
 // const createEmployee = async (req, res) => {

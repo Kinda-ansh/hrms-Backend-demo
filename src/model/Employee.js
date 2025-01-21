@@ -62,15 +62,17 @@ const employeeSchema = new mongoose.Schema({
     sickLeave: { type: Number, default: 4 },
     casualLeave: { type: Number, default: 8 },
     totalLeaveTaken: { type: Number, default: 0 },
-    // managerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
     status: { type: String, enum: ['active', 'inactive', 'on-Leave', 'weekly-off'], default: 'active' },
     role: { type: String, enum: ['admin', 'hr', 'employee', 'manager'], default: 'employee' },
     profilePicture: { type: String },
     password: { type: String, required: true },
+    level1ReportingManager: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' }, 
+    level2ReportingManager: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' }, 
 }, { timestamps: true, toJSON: { virtuals: true } });
 
-employeeSchema.virtual('leaveBalance').get(function() {
+// Virtual field to calculate leave balance
+employeeSchema.virtual('leaveBalance').get(function () {
     return this.sickLeave + this.casualLeave; 
 });
 
-module.exports = mongoose.model('Employee', employeeSchema)
+module.exports = mongoose.model('Employee', employeeSchema);
