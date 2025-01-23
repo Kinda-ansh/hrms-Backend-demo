@@ -7,7 +7,7 @@ const getAllLeaves = async (req, res) => {
     try {
         const leaves = await Leave.find()
             .populate('employeeId', 'employeeId firstName lastName department')
-            .populate('approvedBy', 'employeeId firstName lastName department role')
+            // .populate('approvedBy', 'employeeId firstName lastName department role')
             .sort({ createdAt: -1 });
         
         res.status(200).json(leaves);
@@ -19,7 +19,7 @@ const getAllLeaves = async (req, res) => {
 // Get Leave By ID
 const getLeaveById = async (req, res) => {
     try {
-        const leave = await Leave.findById(req.params.id).populate('employeeId', 'employeeId firstName lastName department');
+        const leave = await Leave.findById(req.params.id).populate('employeeId', 'employeeId firstName lastName department') .short({createdAt: -1})
         if (!leave) return res.status(404).json({ message: "Leave not found" });
         res.status(200).json(leave);
     } catch (err) {
@@ -118,94 +118,12 @@ const requestLeave = async (req, res) => {
     }
 };
 
-
-// const updateLeaveStatus = async (req, res) => {
-//     try {
-//         const { status } = req.body; // Expecting status ('approved' or 'rejected')
-//         const leave = await Leave.findById(req.params.id).populate(
-//             'employeeId',
-//             'employeeId firstName lastName sickLeave casualLeave totalLeaveTaken'
-//         ); // Populate employee details to access leaveBalance
-
-//         if (!leave) {
-//             return res.status(404).json({ message: "Leave request not found" });
-//         }
-
-//         const employee = leave.employeeId; // The employee who requested the leave
-
-//         // Only HR/Admin can approve or reject leave
-//         if (status === 'approved') {
-//             // Check if employee has enough leave balance based on leave type
-//             if (leave.leaveType === 'sickLeave' && employee.sickLeave <= 0) {
-//                 return res.status(400).json({
-//                     message: "Insufficient sick leave balance to approve the leave"
-//                 });
-//             }
-//             if (leave.leaveType === 'casualLeave' && employee.casualLeave <= 0) {
-//                 return res.status(400).json({
-//                     message: "Insufficient casual leave balance to approve the leave"
-//                 });
-//             }
-
-//             // Check if the leave request exceeds the monthly leave limit (4 leaves per month)
-//             const currentYear = leave.startDate.getFullYear();
-//             const currentMonth = leave.startDate.getMonth(); // 0-based month (Jan = 0)
-
-//             const startOfMonth = new Date(currentYear, currentMonth, 1);
-//             const startOfNextMonth = new Date(currentYear, currentMonth + 1, 1);
-
-//             const monthLeaves = await Leave.countDocuments({
-//                 employeeId: employee._id,
-//                 status: 'approved',
-//                 startDate: { $gte: startOfMonth, $lt: startOfNextMonth }
-//             });
-
-//             if (monthLeaves >= 4) {
-//                 return res.status(400).json({
-//                     message: "You have exceeded the maximum leave limit for this month (4 leaves)"
-//                 });
-//             }
-
-//             // Update employee's leave balance based on leave type
-//             if (leave.leaveType === 'sickLeave') {
-//                 employee.sickLeave -= 1; // Reduce the sick leave balance by 1
-//             } else if (leave.leaveType === 'casualLeave') {
-//                 employee.casualLeave -= 1; // Reduce the casual leave balance by 1
-//             }
-
-//             // Increase the total leave taken
-//             employee.totalLeaveTaken += 1;
-
-//             // Save updated employee record
-//             await employee.save();
-
-//             leave.status = 'approved';
-//             leave.approvedBy = req.user.id; // HR/Admin who approved the leave
-
-//         } else if (status === 'rejected') {
-//             leave.status = 'rejected';
-//         } else {
-//             return res.status(400).json({ message: "Invalid status" });
-//         }
-
-//         // Save the updated leave record
-//         await leave.save();
-
-//         res.status(200).json({
-//             message: `Leave ${status} successfully`,
-//             leave
-//         });
-//     } catch (error) {
-//         res.status(400).json({ message: error.message });
-//     }
-// };
-
 const updateLeaveStatus = async (req, res) => {
     try {
-        const { status, role, rejectionReason } = req.body; // Expecting rejectionReason if status is 'rejected'
+        const { status, rejectionReason, approverId } = req.body;
         const leave = await Leave.findById(req.params.id).populate(
-            'employeeId',
-            'employeeId firstName lastName sickLeave casualLeave totalLeaveTaken role'
+            "employeeId",
+            "employeeId firstName lastName sickLeave casualLeave totalLeaveTaken level1ReportingManager level2ReportingManager"
         );
 
         if (!leave) {
@@ -214,90 +132,206 @@ const updateLeaveStatus = async (req, res) => {
 
         const employee = leave.employeeId;
 
-        // Role-based approval/rejection
-        if (role === 'manager') {
-            if (leave.managerApproval !== 'pending') {
-                return res.status(400).json({ message: "Manager has already reviewed this leave request" });
+        // Log to debug the approverId and manager IDs
+        console.log("Approver ID:", approverId);
+        console.log("Level 1 Manager ID:", String(employee.level1ReportingManager));
+        console.log("Level 2 Manager ID:", String(employee.level2ReportingManager));
+
+        // Check if approver is Level 1 or Level 2 reporting manager
+        if (approverId === String(employee.level1ReportingManager)) {
+            if (leave.level1Approval !== "pending") {
+                return res.status(400).json({ message: "Level 1 manager has already reviewed this leave request" });
             }
 
-            if (status === 'rejected' && !rejectionReason) {
+            if (status === "rejected" && !rejectionReason) {
                 return res.status(400).json({ message: "Rejection reason is required" });
             }
 
-            leave.managerApproval = status;
+            leave.level1Approval = status;
 
-            if (status === 'rejected') {
-                leave.status = 'rejected';
-                leave.rejectionReason = rejectionReason; // Save rejection reason
+            if (status === "rejected") {
+                leave.status = "rejected";
+                leave.rejectionReason = rejectionReason;
+            } else if (status === "approved") {
+                if (String(employee.level1ReportingManager) === String(employee.level2ReportingManager)) {
+                    leave.level2Approval = "approved";
+
+                    if (leave.leaveType === "sickLeave" && employee.sickLeave <= 0) {
+                        return res.status(400).json({ message: "Insufficient sick leave balance to approve the leave" });
+                    }
+                    if (leave.leaveType === "casualLeave" && employee.casualLeave <= 0) {
+                        return res.status(400).json({ message: "Insufficient casual leave balance to approve the leave" });
+                    }
+
+                    if (leave.leaveType === "sickLeave") {
+                        employee.sickLeave -= 1;
+                    } else if (leave.leaveType === "casualLeave") {
+                        employee.casualLeave -= 1;
+                    }
+
+                    employee.totalLeaveTaken += 1;
+                    await employee.save();
+
+                    leave.status = "approved";
+                } else {
+                    leave.status = "pending";
+                }
+            }
+        } else if (approverId === String(employee.level2ReportingManager)) {
+            if (leave.level1Approval !== "approved") {
+                return res.status(400).json({ message: "Leave must be approved by Level 1 manager first" });
             }
 
-        } else if (role === 'hr') {
-            if (leave.managerApproval !== 'approved') {
-                return res.status(400).json({ message: "Leave must be approved by the manager first" });
+            if (leave.level2Approval !== "pending") {
+                return res.status(400).json({ message: "Level 2 manager has already reviewed this leave request" });
             }
 
-            if (leave.hrApproval !== 'pending') {
-                return res.status(400).json({ message: "HR has already reviewed this leave request" });
-            }
-
-            if (status === 'rejected' && !rejectionReason) {
+            if (status === "rejected" && !rejectionReason) {
                 return res.status(400).json({ message: "Rejection reason is required" });
             }
 
-            if (status === 'approved') {
-                if (leave.leaveType === 'sickLeave' && employee.sickLeave <= 0) {
+            if (status === "approved") {
+                if (leave.leaveType === "sickLeave" && employee.sickLeave <= 0) {
                     return res.status(400).json({ message: "Insufficient sick leave balance to approve the leave" });
                 }
-                if (leave.leaveType === 'casualLeave' && employee.casualLeave <= 0) {
+                if (leave.leaveType === "casualLeave" && employee.casualLeave <= 0) {
                     return res.status(400).json({ message: "Insufficient casual leave balance to approve the leave" });
                 }
 
-                const currentYear = leave.startDate.getFullYear();
-                const currentMonth = leave.startDate.getMonth();
-                const startOfMonth = new Date(currentYear, currentMonth, 1);
-                const startOfNextMonth = new Date(currentYear, currentMonth + 1, 1);
-
-                const monthLeaves = await Leave.countDocuments({
-                    employeeId: employee._id,
-                    status: 'approved',
-                    startDate: { $gte: startOfMonth, $lt: startOfNextMonth }
-                });
-
-                if (monthLeaves >= 4) {
-                    return res.status(400).json({ message: "Maximum leave limit for this month exceeded (4 leaves)" });
-                }
-
-                if (leave.leaveType === 'sickLeave') {
+                if (leave.leaveType === "sickLeave") {
                     employee.sickLeave -= 1;
-                } else if (leave.leaveType === 'casualLeave') {
+                } else if (leave.leaveType === "casualLeave") {
                     employee.casualLeave -= 1;
                 }
 
                 employee.totalLeaveTaken += 1;
                 await employee.save();
 
-                leave.status = 'approved';
-            } else if (status === 'rejected') {
-                leave.status = 'rejected';
-                leave.rejectionReason = rejectionReason; // Save rejection reason
+                leave.status = "approved";
+            } else if (status === "rejected") {
+                leave.status = "rejected";
+                leave.rejectionReason = rejectionReason;
             }
 
-            leave.hrApproval = status;
+            leave.level2Approval = status;
         } else {
-            return res.status(400).json({ message: "Invalid role" });
+            return res.status(403).json({ message: "You are not authorized to approve/reject this leave request" });
         }
 
         await leave.save();
 
         res.status(200).json({
-            message: `Leave ${status} successfully by ${role}`,
-            leave
+            message: `Leave ${status} successfully by approver`,
+            leave,
         });
-
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        console.error(error.message); // Log the error for debugging
+        res.status(500).json({ message: "Server error", error: error.message });
     }
 };
+
+
+
+// ||==================
+// ====================================================
+// const updateLeaveStatus = async (req, res) => {
+//     try {
+//         const { status, role, rejectionReason } = req.body; // Expecting rejectionReason if status is 'rejected'
+//         const leave = await Leave.findById(req.params.id).populate(
+//             'employeeId',
+//             'employeeId firstName lastName sickLeave casualLeave totalLeaveTaken role'
+//         );
+
+//         if (!leave) {
+//             return res.status(404).json({ message: "Leave request not found" });
+//         }
+
+//         const employee = leave.employeeId;
+
+//         // Role-based approval/rejection
+//         if (role === 'manager') {
+//             if (leave.managerApproval !== 'pending') {
+//                 return res.status(400).json({ message: "Manager has already reviewed this leave request" });
+//             }
+
+//             if (status === 'rejected' && !rejectionReason) {
+//                 return res.status(400).json({ message: "Rejection reason is required" });
+//             }
+
+//             leave.managerApproval = status;
+
+//             if (status === 'rejected') {
+//                 leave.status = 'rejected';
+//                 leave.rejectionReason = rejectionReason; // Save rejection reason
+//             }
+
+//         } else if (role === 'hr') {
+//             if (leave.managerApproval !== 'approved') {
+//                 return res.status(400).json({ message: "Leave must be approved by the manager first" });
+//             }
+
+//             if (leave.hrApproval !== 'pending') {
+//                 return res.status(400).json({ message: "HR has already reviewed this leave request" });
+//             }
+
+//             if (status === 'rejected' && !rejectionReason) {
+//                 return res.status(400).json({ message: "Rejection reason is required" });
+//             }
+
+//             if (status === 'approved') {
+//                 if (leave.leaveType === 'sickLeave' && employee.sickLeave <= 0) {
+//                     return res.status(400).json({ message: "Insufficient sick leave balance to approve the leave" });
+//                 }
+//                 if (leave.leaveType === 'casualLeave' && employee.casualLeave <= 0) {
+//                     return res.status(400).json({ message: "Insufficient casual leave balance to approve the leave" });
+//                 }
+
+//                 const currentYear = leave.startDate.getFullYear();
+//                 const currentMonth = leave.startDate.getMonth();
+//                 const startOfMonth = new Date(currentYear, currentMonth, 1);
+//                 const startOfNextMonth = new Date(currentYear, currentMonth + 1, 1);
+
+//                 const monthLeaves = await Leave.countDocuments({
+//                     employeeId: employee._id,
+//                     status: 'approved',
+//                     startDate: { $gte: startOfMonth, $lt: startOfNextMonth }
+//                 });
+
+//                 if (monthLeaves >= 4) {
+//                     return res.status(400).json({ message: "Maximum leave limit for this month exceeded (4 leaves)" });
+//                 }
+
+//                 if (leave.leaveType === 'sickLeave') {
+//                     employee.sickLeave -= 1;
+//                 } else if (leave.leaveType === 'casualLeave') {
+//                     employee.casualLeave -= 1;
+//                 }
+
+//                 employee.totalLeaveTaken += 1;
+//                 await employee.save();
+
+//                 leave.status = 'approved';
+//             } else if (status === 'rejected') {
+//                 leave.status = 'rejected';
+//                 leave.rejectionReason = rejectionReason; // Save rejection reason
+//             }
+
+//             leave.hrApproval = status;
+//         } else {
+//             return res.status(400).json({ message: "Invalid role" });
+//         }
+
+//         await leave.save();
+
+//         res.status(200).json({
+//             message: `Leave ${status} successfully by ${role}`,
+//             leave
+//         });
+
+//     } catch (error) {
+//         res.status(400).json({ message: error.message });
+//     }
+// };
 
 
 

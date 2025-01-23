@@ -15,7 +15,7 @@ const settingsSchema = new mongoose.Schema(
           weekNumbers: { type: [Number], required: true, enum: [1, 2, 3, 4, 5] }, // e.g., [1, 3] for 1st and 3rd week
         },
       ],
-      default: [], // Empty by default
+      default: [],
     },
     announcements: [
       {
@@ -41,6 +41,26 @@ const settingsSchema = new mongoose.Schema(
     leavePolicy: {
       maxConsecutiveLeaveDays: { type: Number, required: true, default: 5 },
       approvalRequired: { type: Boolean, required: true, default: true },
+    },
+    locationRange: {
+      type: Number, // Numeric value representing the range in meters
+      required: true,
+      default: 1000, // Default range set to 1000 meters
+      min: 1, // Minimum value validation
+    },
+    latitude: {
+      type: Number, // Latitude for geographical location
+      required: true,
+    },
+    longitude: {
+      type: Number, // Longitude for geographical location
+      required: true,
+    },
+    
+    locationBasedAttendance: {
+      type: Boolean, // Status for enabling/disabling location-based attendance
+      required: true,
+      default: false, // Default is disabled
     },
     createdAt: {
       type: Date,
