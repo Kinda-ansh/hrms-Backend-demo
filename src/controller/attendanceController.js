@@ -5,6 +5,7 @@ const Employee = require("../model/Employee");
 const cron = require("node-cron");
 const { getDistance } = require("geolib");
 const { getPreciseDistance } = require("geolib");
+const Settings = require("../model/settings");
 
 const formatTime = (workingMinutes) => {
   const hours = Math.floor(workingMinutes / 60); // Get whole hours
@@ -19,7 +20,8 @@ const OFFICE_LOCATION = {
   longitude: 83.0256866, 
 };
 const ALLOWED_DISTANCE = 50; 
-
+const officeLocation = { latitude:25.360938019456057, longitude: 83.02587061819754}; // Replace with your office coordinates
+const radius = 20; // 50 meters
 
 // ======================= Attendance with location 
 // const markAttendance = async (req, res) => {
@@ -35,10 +37,27 @@ const ALLOWED_DISTANCE = 50;
 //       return res.status(400).json({ message: "Location data is required." });
 //     }
 
+//     // Fetch office location and radius from settings
+//     const settings = await Settings.findOne();
+//     if (!settings) {
+//       return res.status(500).json({ message: "Settings not found." });
+//     }
+
+//     const {
+//       latitude: officeLat,
+//       longitude: officeLon,
+//       locationRange: ALLOWED_DISTANCE,
+//       locationBasedAttendance,
+//     } = settings;
+
+//     if (!locationBasedAttendance) {
+//       return res.status(400).json({ message: "Location-based attendance is disabled." });
+//     }
+
 //     // Calculate distance from the office
 //     const distance = getPreciseDistance(
 //       { latitude: parseFloat(latitude), longitude: parseFloat(longitude) },
-//       { latitude: OFFICE_LOCATION.latitude, longitude: OFFICE_LOCATION.longitude }
+//       { latitude: officeLat, longitude: officeLon }
 //     );
 
 //     console.log(`Calculated Distance: ${distance} meters`);
@@ -50,9 +69,7 @@ const ALLOWED_DISTANCE = 50;
 //       });
 //     }
 
-//     // Proceed with the rest of the attendance logic
-//     // ...
-
+//     // Check if attendance is already marked
 //     const existingRecord = await Attendance.findOne({
 //       employeeId,
 //       date: currentDate,
@@ -65,23 +82,9 @@ const ALLOWED_DISTANCE = 50;
 //       });
 //     }
 
-//     const weeklyOffDays = [0, 6];
-//     const isWeeklyOff = weeklyOffDays.includes(now.day());
-
-//     const leaveRecord = await Leave.findOne({
-//       employeeId,
-//       startDate: { $lte: now.toDate() },
-//       endDate: { $gte: now.toDate() },
-//       status: "approved",
-//     });
-
-//     if (leaveRecord) {
-//       return res.status(200).json({
-//         message: "Employee is on leave today.",
-//         status: "on-leave",
-//         leaveRecord,
-//       });
-//     }
+//     // Check for weekly off days
+//     const weekOffDays = settings.weekOffDays.map((day) => moment().day(day).isoWeekday());
+//     const isWeeklyOff = weekOffDays.includes(now.isoWeekday());
 
 //     if (isWeeklyOff) {
 //       const attendance = new Attendance({
@@ -97,24 +100,40 @@ const ALLOWED_DISTANCE = 50;
 //       });
 //     }
 
-//     let status = "absent";
-//     let lateTimeInMinutes = 0;
-//     const officialStartTime = now.clone().set({ hour: 10, minute: 0, second: 0 });
+//     // Check for leave
+//     const leaveRecord = await Leave.findOne({
+//       employeeId,
+//       startDate: { $lte: now.toDate() },
+//       endDate: { $gte: now.toDate() },
+//       status: "approved",
+//     });
 
-//     if (now.isSameOrBefore(officialStartTime)) {
-//       status = "present";
-//     } else {
-//       lateTimeInMinutes = now.diff(officialStartTime, "minutes");
-//       status = lateTimeInMinutes > 0 ? "late" : "present";
+//     if (leaveRecord) {
+//       return res.status(200).json({
+//         message: "Employee is on leave today.",
+//         status: "on-leave",
+//         leaveRecord,
+//       });
 //     }
 
-//     const lateTime =
-//       lateTimeInMinutes > 0 ? formatTime(lateTimeInMinutes) : "0h 0m";
+//     // Determine attendance status (present, late)
+//     const officialStartTime = moment("10:00 AM", "hh:mm A").tz("Asia/Kolkata");
+//     const isOnTime = now.isSameOrBefore(officialStartTime);
+//     let status = isOnTime ? "present" : "late";
+
+//     // Calculate late time from 10:00 AM
+//     const lateTimeInMinutes = isOnTime ? 0 : now.diff(officialStartTime, "minutes");
+//     const lateTime = lateTimeInMinutes > 0
+//       ? `${Math.floor(lateTimeInMinutes / 60)}h ${lateTimeInMinutes % 60}m`
+//       : "0h 0m";
+
+//     // Format check-in time in 12-hour format
+//     const checkInTime = now.format("hh:mm A");
 
 //     const attendance = new Attendance({
 //       employeeId,
 //       date: currentDate,
-//       checkInTime: now.toDate(),
+//       checkInTime,
 //       status,
 //       lateTime,
 //     });
@@ -130,6 +149,120 @@ const ALLOWED_DISTANCE = 50;
 //     res.status(500).json({ error: "An error occurred while marking attendance." });
 //   }
 // };
+
+const markAttendanceWithLocation  = async (req, res) => {
+  try {
+    const employeeId = req.user.id; // Ensure `req.user` contains the authenticated user's info
+    const now = moment().tz("Asia/Kolkata"); // Use consistent time zone
+    const currentDate = now.format("YYYY-MM-DD");
+
+    // Check if attendance already exists for today
+    const existingRecord = await Attendance.findOne({
+      employeeId,
+      date: currentDate,
+    });
+
+    if (existingRecord) {
+      return res.status(200).json({
+        message: "Attendance already marked successfully for today.",
+        attendance: existingRecord,
+      });
+    }
+
+    // Weekly-off days logic
+    const weeklyOffDays = [0, 6]; // Sunday (0) and Saturday (6)
+    const isWeeklyOff = weeklyOffDays.includes(now.day());
+
+    // Check if employee is on leave
+    const leaveRecord = await Leave.findOne({
+      employeeId,
+      startDate: { $lte: now.toDate() },
+      endDate: { $gte: now.toDate() },
+      status: "approved",
+    });
+
+    if (leaveRecord) {
+      return res.status(200).json({
+        message: "Employee is on leave today.",
+        status: "on-leave",
+        leaveRecord,
+      });
+    }
+
+    // Handle weekly-off case
+    if (isWeeklyOff) {
+      const attendance = new Attendance({
+        employeeId,
+        date: currentDate,
+        status: "weekly-off",
+      });
+      await attendance.save();
+
+      return res.status(201).json({
+        message: "Attendance marked as weekly-off for today.",
+        attendance,
+      });
+    }
+
+    // Location validation
+    const { latitude, longitude } = req.body.location || {}; // Expect location from frontend
+    if (!latitude || !longitude) {
+      return res.status(400).json({ error: "Location data is required." });
+    }
+
+    const distance = getDistance(
+      { latitude, longitude },
+      officeLocation
+    );
+
+    if (distance > radius) {
+      return res.status(403).json({
+        message: "You are not within the office location to mark attendance.",
+        distance,
+      });
+    }
+
+    // Default attendance status
+    let status = "absent";
+    let lateTimeInMinutes = 0;
+
+    const officialStartTime = now
+      .clone()
+      .set({ hour: 10, minute: 0, second: 0 });
+
+    // Check attendance timing
+    if (now.isSameOrBefore(officialStartTime)) {
+      status = "present";
+    } else {
+      lateTimeInMinutes = now.diff(officialStartTime, "minutes");
+      status = lateTimeInMinutes > 0 ? "late" : "present";
+    }
+
+    const lateTime = lateTimeInMinutes > 0 ? formatTime(lateTimeInMinutes) : "0h 0m";
+
+    // Create attendance record
+    const attendance = new Attendance({
+      employeeId,
+      date: currentDate,
+      checkInTime: now.toDate(),
+      status,
+      lateTime,
+      location: { latitude, longitude }, // Save location for auditing
+    });
+
+    await attendance.save();
+
+    res.status(201).json({
+      message: "Attendance marked successfully.",
+      attendance,
+    });
+  } catch (err) {
+    console.error(err.message);
+    res
+      .status(500)
+      .json({ error: "An error occurred while marking attendance." });
+  }
+};
 
 
 
@@ -979,6 +1112,10 @@ const getAllEmployeesTodayAttendance = async (req, res) => {
   }
 };
 
+
+
+
+
 module.exports = {
   markAttendance,
   markCheckOut,
@@ -990,4 +1127,5 @@ module.exports = {
   deleteAttendance,
   getAttendanceForCalendar,
   getAllEmployeesTodayAttendance,
+  markAttendanceWithLocation
 };

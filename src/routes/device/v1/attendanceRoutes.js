@@ -15,6 +15,7 @@ router.delete("/attendance/delete/:id", attendanceController.deleteAttendance);
 
 // Mark attendance (check-in) - Employees can mark attendance only once per day
 router.post("/attendance", authMiddleware, roleMiddleware(["employee", "hr", 'manager']), attendanceController.markAttendance);
+router.post("/attendance/with-loaction", authMiddleware, roleMiddleware(["employee", "hr", 'manager']), attendanceController.markAttendanceWithLocation);
 
 // Mark check-out - Employees can mark checkout only once they have checked in
 router.put("/attendance/checkout", authMiddleware, roleMiddleware(["employee","hr", 'manager']), attendanceController.markCheckOut);
