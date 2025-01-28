@@ -4,7 +4,7 @@ const attendanceController = require("../../../controller/attendanceController")
 const router = express.Router();
 
 // Attendance Routes
-router.get("/attendance", authMiddleware, roleMiddleware(["admin", "hr", "manager"]), attendanceController.getAllAttendance); 
+router.get("/attendance", authMiddleware, roleMiddleware(["admin", "hr", "manager", "employee"]), attendanceController.getAllAttendance); 
 router.get("/attendance/mine", authMiddleware, roleMiddleware(["employee", "hr", 'manager']), attendanceController.getMyAttendance); 
 router.get("/attendance/calender", authMiddleware, roleMiddleware(["employee", "hr", 'manager']), attendanceController.getAttendanceForCalendar); 
 router.get("/attendance/today/all", authMiddleware, roleMiddleware(["admin","hr", 'manager']), attendanceController.getAllEmployeesTodayAttendance); 

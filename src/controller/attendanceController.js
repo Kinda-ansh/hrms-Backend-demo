@@ -15,13 +15,9 @@ const formatTime = (workingMinutes) => {
   return `${hours}h ${minutes}m`;
 };
 
-const OFFICE_LOCATION = {
-  latitude:25.363274, 
-  longitude: 83.0256866, 
-};
-const ALLOWED_DISTANCE = 50; 
-const officeLocation = { latitude:25.360938019456057, longitude: 83.02587061819754}; // Replace with your office coordinates
-const radius = 20; // 50 meters
+
+const officeLocation = { latitude:25.363176828849998, longitude:  83.0255244330984}; // Replace with your office coordinates
+const radius = 50; 
 
 // ======================= Attendance with location 
 // const markAttendance = async (req, res) => {
@@ -150,11 +146,19 @@ const radius = 20; // 50 meters
 //   }
 // };
 
-const markAttendanceWithLocation  = async (req, res) => {
+const markAttendanceWithLocation = async (req, res) => {
   try {
     const employeeId = req.user.id; // Ensure `req.user` contains the authenticated user's info
     const now = moment().tz("Asia/Kolkata"); // Use consistent time zone
     const currentDate = now.format("YYYY-MM-DD");
+
+    // Fetch office location and radius from Settings schema
+    const settings = await Settings.findOne();
+    if (!settings) {
+      return res.status(500).json({ error: "Settings configuration not found." });
+    }
+
+    const { latitude: officeLat, longitude: officeLong, locationRange, locationBasedAttendance } = settings;
 
     // Check if attendance already exists for today
     const existingRecord = await Attendance.findOne({
@@ -204,22 +208,24 @@ const markAttendanceWithLocation  = async (req, res) => {
       });
     }
 
-    // Location validation
-    const { latitude, longitude } = req.body.location || {}; // Expect location from frontend
-    if (!latitude || !longitude) {
-      return res.status(400).json({ error: "Location data is required." });
-    }
+    // Handle location-based attendance
+    if (locationBasedAttendance) {
+      const { latitude, longitude } = req.body.location || {};
+      if (!latitude || !longitude) {
+        return res.status(400).json({ error: "Location data is required." });
+      }
 
-    const distance = getDistance(
-      { latitude, longitude },
-      officeLocation
-    );
+      const distance = getDistance(
+        { latitude, longitude },
+        { latitude: officeLat, longitude: officeLong }
+      );
 
-    if (distance > radius) {
-      return res.status(403).json({
-        message: "You are not within the office location to mark attendance.",
-        distance,
-      });
+      if (distance > locationRange) {
+        return res.status(403).json({
+          message: "You are not within the office location to mark attendance.",
+          distance,
+        });
+      }
     }
 
     // Default attendance status
@@ -247,7 +253,7 @@ const markAttendanceWithLocation  = async (req, res) => {
       checkInTime: now.toDate(),
       status,
       lateTime,
-      location: { latitude, longitude }, // Save location for auditing
+      location: locationBasedAttendance ? { latitude: req.body.location.latitude, longitude: req.body.location.longitude } : undefined,
     });
 
     await attendance.save();
@@ -258,11 +264,10 @@ const markAttendanceWithLocation  = async (req, res) => {
     });
   } catch (err) {
     console.error(err.message);
-    res
-      .status(500)
-      .json({ error: "An error occurred while marking attendance." });
+    res.status(500).json({ error: "An error occurred while marking attendance." });
   }
 };
+
 
 
 
@@ -366,7 +371,6 @@ const markAttendance = async (req, res) => {
 };
 
 // ===========================|| Cron for auto Logout at 11:30PM ||==================
-
 
 cron.schedule("30 23 * * *", async () => { 
   try {
@@ -789,141 +793,6 @@ const deleteAttendance = async (req, res) => {
 // ========================
 
 
-// const getAttendanceForCalendar = async (req, res) => {
-//   try {
-//     const employeeId = req.user.id; // Authenticated employee's ID
-
-//     // Get the current date and calculate the start and end of the current and previous month
-//     const now = new Date();
-//     const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-//     const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-//     const startOfPreviousMonth = new Date(
-//       now.getFullYear(),
-//       now.getMonth() - 1,
-//       1
-//     );
-//     const endOfPreviousMonth = new Date(
-//       now.getFullYear(),
-//       now.getMonth(),
-//       0
-//     );
-
-//     // Fetch attendance records for the current and previous month
-//     const attendanceRecords = await Attendance.find({
-//       employeeId,
-//       date: { $gte: startOfPreviousMonth, $lte: endOfCurrentMonth },
-//     });
-
-//     // Fetch approved leave records for the current and previous month
-//     const leaveRecords = await Leave.find({
-//       employeeId,
-//       status: "approved",
-//       $or: [
-//         {
-//           startDate: { $lte: endOfCurrentMonth },
-//           endDate: { $gte: startOfPreviousMonth },
-//         }, // Leave spans both months
-//       ],
-//     });
-
-//     const events = [];
-
-//     // Create a map of attendance records for quick lookup
-//     const attendanceMap = attendanceRecords.reduce((map, record) => {
-//       map[record.date.toISOString().split("T")[0]] = record;
-//       return map;
-//     }, {});
-
-//     // Process leave records
-//     leaveRecords.forEach((leave) => {
-//       let currentDate = new Date(
-//         leave.startDate > startOfPreviousMonth ? leave.startDate : startOfPreviousMonth
-//       );
-//       const leaveEndDate =
-//         leave.endDate < endOfCurrentMonth ? leave.endDate : endOfCurrentMonth;
-
-//       while (currentDate <= leaveEndDate) {
-//         const dateKey = currentDate.toISOString().split("T")[0];
-//         if (!attendanceMap[dateKey]) {
-//           events.push({
-//             title: "ON LEAVE",
-//             date: dateKey,
-//             backgroundColor: "#f44336", // Red for "on-leave"
-//             borderColor: "transparent",
-//             textColor: "white",
-//           });
-//         }
-//         currentDate.setDate(currentDate.getDate() + 1);
-//       }
-//     });
-
-//     // Process attendance records
-//     attendanceRecords.forEach((record) => {
-//       let backgroundColor = "#4caf50"; // Default: Green for "present"
-//       if (record.status === "late") {
-//         backgroundColor = "#ff9800"; // Orange for "late"
-//       } else if (record.status === "weekly-off") {
-//         backgroundColor = "#9e9e9e"; // Grey for "weekly-off"
-//       } else if (record.status === "absent") {
-//         backgroundColor = "#f44336"; // Red for "absent"
-//       } else if (record.status === "pending") {
-//         backgroundColor = "#ffeb3b"; // Yellow for "pending"
-//       }
-//       else if (record.status === "on-leave") {
-//         backgroundColor = "#17a2b8"; // Yellow for "pending"
-//       }
-
-//       events.push({
-//         title: record.status.replace(/-/g, " ").toUpperCase(), // Status formatted for display
-//         date: record.date.toISOString().split("T")[0], // Format as YYYY-MM-DD
-//         backgroundColor,
-//         borderColor: "transparent",
-//         textColor: "white",
-//       });
-//     });
-
-//     // Add default weekly-offs for the previous and current month
-//     const addWeeklyOffs = (start, end) => {
-//       let currentDate = new Date(start);
-//       while (currentDate <= end) {
-//         const normalizedDate = new Date(
-//           Date.UTC(
-//             currentDate.getFullYear(),
-//             currentDate.getMonth(),
-//             currentDate.getDate()
-//           )
-//         );
-//         const day = normalizedDate.getDay(); // 0: Sunday, 6: Saturday
-//         const dateKey = normalizedDate.toISOString().split("T")[0];
-
-//         if ((day === 0 || day === 6) && !attendanceMap[dateKey]) {
-//           events.push({
-//             title: "WEEKLY OFF",
-//             date: dateKey,
-//             backgroundColor: "#9e9e9e", // Grey for weekly-off
-//             borderColor: "transparent",
-//             textColor: "white",
-//           });
-//         }
-
-//         currentDate.setDate(currentDate.getDate() + 1);
-//       }
-//     };
-
-//     addWeeklyOffs(startOfPreviousMonth, endOfPreviousMonth);
-//     addWeeklyOffs(startOfCurrentMonth, endOfCurrentMonth);
-
-//     res.status(200).json({
-//       message: "Attendance data fetched successfully.",
-//       events,
-//     });
-//   } catch (err) {
-//     console.error("Error fetching attendance for calendar:", err);
-//     res.status(500).json({ error: err.message });
-//   }
-// };
-
 const getAttendanceForCalendar = async (req, res) => {
   try {
     const employeeId = req.user.id; // Authenticated employee's ID
@@ -1067,6 +936,7 @@ const getAttendanceForCalendar = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 
 

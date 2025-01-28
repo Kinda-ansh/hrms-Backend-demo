@@ -14,6 +14,7 @@ const {
   deleteLocation,
   updateLocationRange,
   getLocationRangeAndStatus,
+  getAttendanceSettings,
 } = require("../../../controller/settingsController");
 const { authMiddleware, roleMiddleware } = require("../../../middleware/auth");
 
@@ -48,6 +49,7 @@ router.post("/set-location", setLocation);
 
 // Route to get latitude and longitude
 router.get("/get-location", getLocation);
+router.get("/get-attendance-settings", getAttendanceSettings);
 
 // Route to delete latitude and longitude
 router.delete("/delete-location", deleteLocation);

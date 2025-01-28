@@ -350,6 +350,37 @@ const deleteLocation = async (req, res) => {
   }
 };
 
+const getAttendanceSettings = async (req, res) => {
+  try {
+    // Fetch the settings document
+    const settings = await Settings.findOne();
+
+    // If settings not found, return a default response
+    if (!settings) {
+      return res.status(200).json({
+        latitude: null,
+        longitude: null,
+        locationRange: null,
+        locationBasedAttendance: false,
+        message: "No settings found. Default values returned.",
+      });
+    }
+
+    // Return the combined settings
+    return res.status(200).json({
+      latitude: settings.latitude,
+      longitude: settings.longitude,
+      locationRange: settings.locationRange,
+      locationBasedAttendance: settings.locationBasedAttendance,
+    });
+  } catch (error) {
+    console.error("Error fetching attendance settings:", error);
+    return res.status(500).json({
+      message: "Error fetching attendance settings",
+      error: error.message,
+    });
+  }
+};
 
 
 
@@ -368,4 +399,5 @@ module.exports={
     getLocation,
     deleteLocation,
     updateLocationRange,
+    getAttendanceSettings
 }
