@@ -4,7 +4,6 @@
  */
 
 const express = require("express");
-const { sendWelcomeEmail } = require("../../../controller/emailController");
 const router = express.Router();
 
 router.get("/", (req, res) => {
@@ -24,6 +23,7 @@ router.use(require("./payrollRoutes"));
 router.use(require("./performanceRoutes"));
 router.use(require("./settingsRoutes"));
 router.use(require("./ticketRoutes"));
+router.use(require("./dashboardRoutes"));
 
 
 module.exports = router;

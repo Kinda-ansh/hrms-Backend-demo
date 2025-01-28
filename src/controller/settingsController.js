@@ -211,6 +211,179 @@ const getAllSettings = async (req, res) => {
     }
   };
 
+
+
+  /**
+   * Update location range and location-based attendance status
+   */
+  const updateLocationRange = async (req, res) => {
+    const { locationRange, locationBasedAttendance } = req.body;
+
+    // Validate locationRange (only allow 20, 50, 100, 500 meters)
+    // const validRanges = [20, 50, 100, 500];
+    // if (locationRange !== undefined && !validRanges.includes(locationRange)) {
+    //   return res.status(400).json({
+    //     message: `Invalid location range. Allowed values are ${validRanges.join(", ")} meters.`,
+    //   });
+    // }
+
+    // Validate locationBasedAttendance (must be a boolean if provided)
+    if (
+      locationBasedAttendance !== undefined &&
+      typeof locationBasedAttendance !== "boolean"
+    ) {
+      return res.status(400).json({
+        message: "Invalid value for locationBasedAttendance. Must be true or false.",
+      });
+    }
+
+    try {
+      // Find the settings document or create one if it doesn't exist
+      let settings = await Settings.findOne();
+      if (!settings) {
+        settings = new Settings();
+      }
+
+      // Update the fields if provided
+      if (locationRange !== undefined) {
+        settings.locationRange = locationRange;
+      }
+      if (locationBasedAttendance !== undefined) {
+        settings.locationBasedAttendance = locationBasedAttendance;
+      }
+
+      await settings.save();
+
+      res.status(200).json({
+        message: "Location settings updated successfully",
+        locationRange: settings.locationRange,
+        locationBasedAttendance: settings.locationBasedAttendance,
+      });
+    } catch (error) {
+      console.error("Error updating location settings:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  }
+
+  const getLocationRangeAndStatus = async (req, res) => {
+    try {
+      // Fetch the settings document
+      const settings = await Settings.findOne();
+  
+      // If settings not found, return a default response
+      if (!settings) {
+        return res.status(200).json({
+          locationRange: null,
+          locationBasedAttendance: false,
+          message: "No settings found. Default values returned.",
+        });
+      }
+  
+      // Return the location settings
+      res.status(200).json({
+        locationRange: settings.locationRange,
+        locationBasedAttendance: settings.locationBasedAttendance,
+      });
+    } catch (error) {
+      console.error("Error fetching location settings:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  };
+  
+
+
+
+
+// CREATE or UPDATE latitude and longitude
+const setLocation = async (req, res) => {
+  const { latitude, longitude } = req.body;
+  
+  try {
+    // Find the existing settings or create new if it doesn't exist
+    const settings = await Settings.findOne();
+    if (settings) {
+      settings.latitude = latitude;
+      settings.longitude = longitude;
+      settings.updatedAt = Date.now();
+      await settings.save();
+      return res.status(200).json({ message: "Location updated successfully", settings });
+    } else {
+      const newSettings = new Settings({
+        latitude,
+        longitude,
+      });
+      await newSettings.save();
+      return res.status(201).json({ message: "Location saved successfully", newSettings });
+    }
+  } catch (error) {
+    return res.status(500).json({ message: "Error updating location", error: error.message });
+  }
+};
+
+// GET latitude and longitude
+const getLocation = async (req, res) => {
+  try {
+    const settings = await Settings.findOne();
+    if (!settings) {
+      return res.status(404).json({ message: "Settings not found" });
+    }
+    return res.status(200).json({ latitude: settings.latitude, longitude: settings.longitude });
+  } catch (error) {
+    return res.status(500).json({ message: "Error fetching location", error: error.message });
+  }
+};
+
+// DELETE latitude and longitude
+const deleteLocation = async (req, res) => {
+  try {
+    const settings = await Settings.findOne();
+    if (!settings) {
+      return res.status(404).json({ message: "Settings not found" });
+    }
+    settings.latitude = undefined;
+    settings.longitude = undefined;
+    settings.updatedAt = Date.now();
+    await settings.save();
+    return res.status(200).json({ message: "Location deleted successfully", settings });
+  } catch (error) {
+    return res.status(500).json({ message: "Error deleting location", error: error.message });
+  }
+};
+
+const getAttendanceSettings = async (req, res) => {
+  try {
+    // Fetch the settings document
+    const settings = await Settings.findOne();
+
+    // If settings not found, return a default response
+    if (!settings) {
+      return res.status(200).json({
+        latitude: null,
+        longitude: null,
+        locationRange: null,
+        locationBasedAttendance: false,
+        message: "No settings found. Default values returned.",
+      });
+    }
+
+    // Return the combined settings
+    return res.status(200).json({
+      latitude: settings.latitude,
+      longitude: settings.longitude,
+      locationRange: settings.locationRange,
+      locationBasedAttendance: settings.locationBasedAttendance,
+    });
+  } catch (error) {
+    console.error("Error fetching attendance settings:", error);
+    return res.status(500).json({
+      message: "Error fetching attendance settings",
+      error: error.message,
+    });
+  }
+};
+
+
+
 module.exports={
     updateWeekOffs,
     addAnnouncement,
@@ -220,5 +393,11 @@ module.exports={
     updateWorkHours,
     removeCompanyHoliday,
     addCompanyHoliday,
-    getAllSettings
+    getAllSettings,
+    getLocationRangeAndStatus,
+    setLocation,
+    getLocation,
+    deleteLocation,
+    updateLocationRange,
+    getAttendanceSettings
 }
