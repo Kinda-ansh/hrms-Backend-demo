@@ -550,6 +550,98 @@ const getAllAttendance = async (req, res) => {
 };
 
 // Get Logged-In Employee's Attendance
+// const getMyAttendance = async (req, res) => {
+//   try {
+//     const employeeId = req.user.id; // Authenticated employee's ID
+
+//     // Get the current date and calculate the start and end of the current month
+//     const now = new Date();
+//     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+//     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+//     // Fetch attendance records for the current month
+//     const attendanceRecords = await Attendance.find({
+//       employeeId,
+//       date: {
+//         $gte: startOfMonth,
+//         $lte: endOfMonth,
+//       },
+//     }).populate("employeeId", "employeeId firstName leaveBalance");
+
+//     // Fetch leave records for the current month
+//     const leaveRecords = await Leave.find({
+//       employeeId,
+//       $or: [
+//         {
+//           startDate: { $lte: endOfMonth },
+//           endDate: { $gte: startOfMonth },
+//         },
+//       ],
+//     });
+
+//     const allRecords = [];
+
+//     // Process attendance records
+//     attendanceRecords.forEach((record) => {
+//       const data = {
+//         _id: record._id,
+//         employeeId: record.employeeId,
+//         date: record.date,
+//         checkInTime: record.checkInTime,
+//         lateTime: record.lateTime,
+//         status: record.status,
+//         createdAt: record.createdAt,
+//         updatedAt: record.updatedAt,
+//       };
+//       allRecords.push(data);
+//     });
+
+//     // Process leave records
+//     leaveRecords.forEach((leave) => {
+//       let currentDate = new Date(
+//         leave.startDate > startOfMonth ? leave.startDate : startOfMonth
+//       );
+//       const leaveEndDate = leave.endDate < endOfMonth ? leave.endDate : endOfMonth;
+
+//       while (currentDate <= leaveEndDate) {
+//         const dateKey = currentDate.toISOString().split("T")[0];
+//         const leaveStatus =
+//           leave.status === "approved"
+//             ? "on-leave"
+//             : leave.status === "pending"
+//             ? "pending-leave"
+//             : "rejected-leave";
+
+//         allRecords.push({
+//           _id: leave._id,
+//           employeeId: {
+//             _id: leave.employeeId,
+//             employeeId: req.user.employeeId,
+//             firstName: req.user.firstName,
+//             leaveBalance: null,
+//           },
+//           date: new Date(dateKey),
+//           status: leaveStatus,
+//           checkInTime: null,
+//           lateTime: null,
+//           createdAt: leave.createdAt,
+//           updatedAt: leave.updatedAt,
+//         });
+
+//         currentDate.setDate(currentDate.getDate() + 1);
+//       }
+//     });
+
+//     // Sort records by date in ascending order
+//     allRecords.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+//     res.status(200).json(allRecords);
+//   } catch (err) {
+//     console.error("Error fetching attendance:", err);
+//     res.status(500).json({ error: err.message });
+//   }
+// };
+
 const getMyAttendance = async (req, res) => {
   try {
     const employeeId = req.user.id; // Authenticated employee's ID
@@ -588,6 +680,7 @@ const getMyAttendance = async (req, res) => {
         employeeId: record.employeeId,
         date: record.date,
         checkInTime: record.checkInTime,
+        checkOutTime: record.checkOutTime, // Add checkOutTime here
         lateTime: record.lateTime,
         status: record.status,
         createdAt: record.createdAt,
@@ -623,6 +716,7 @@ const getMyAttendance = async (req, res) => {
           date: new Date(dateKey),
           status: leaveStatus,
           checkInTime: null,
+          checkOutTime: null, // No checkOutTime for leave records
           lateTime: null,
           createdAt: leave.createdAt,
           updatedAt: leave.updatedAt,
@@ -641,36 +735,6 @@ const getMyAttendance = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
-
-// const getMyAttendance = async (req, res) => {
-//   try {
-//     const employeeId = req.user.id; // Assuming `req.user` has authenticated user's data
-
-//     // Get the start and end dates of the current month
-//     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1); // First day of the month
-//     const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0); // Last day of the month
-
-//     // Fetch attendance records for the current month sorted by date in descending order
-//     const attendance = await Attendance.find({
-//       employeeId,
-//       date: {
-//         $gte: startOfMonth, // Greater than or equal to the start of the month
-//         $lte: endOfMonth,  // Less than or equal to the end of the month
-//       },
-//     })
-//       .populate("employeeId", "employeeId firstName")
-//       .sort({ date: -1 }); // Sort by date in descending order (-1 for descending)
-
-//     res.status(200).json(attendance);
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// };
-
-
-// Get Logged-In Employee's Attendance for Today
-
 
 const getMyTodayAttendance = async (req, res) => {
   try {
