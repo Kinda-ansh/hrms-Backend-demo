@@ -24,6 +24,7 @@ router.use(require("./performanceRoutes"));
 router.use(require("./settingsRoutes"));
 router.use(require("./ticketRoutes"));
 router.use(require("./dashboardRoutes"));
+router.use(require("./holyDayRoutes"));
 
 
 module.exports = router;

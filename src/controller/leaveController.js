@@ -1,25 +1,43 @@
 const moment = require('moment');
 const Leave = require('../model/Leave')
 const Employee = require('../model/Employee');
+const { default: mongoose } = require('mongoose');
 
 // Get All Leaves
+// const getAllLeaves = async (req, res) => {
+//     try {
+//         const leaves = await Leave.find()
+//             .populate('employeeId', 'employeeId firstName lastName department')
+//             // .populate('approvedBy', 'employeeId firstName lastName department role')
+//             .sort({ createdAt: -1 });
+        
+//         res.status(200).json(leaves);
+//     } catch (err) {
+//         res.status(500).json({ error: err.message });
+//     }
+// };
+
 const getAllLeaves = async (req, res) => {
     try {
         const leaves = await Leave.find()
             .populate('employeeId', 'employeeId firstName lastName department')
-            // .populate('approvedBy', 'employeeId firstName lastName department role')
+            .populate('level1ReportingManager', 'employeeId firstName lastName department')
+            .populate('level2ReportingManager', 'employeeId firstName lastName department')
             .sort({ createdAt: -1 });
-        
+
         res.status(200).json(leaves);
     } catch (err) {
+        console.error("Error fetching leave data:", err);
         res.status(500).json({ error: err.message });
     }
 };
 
+
 // Get Leave By ID
 const getLeaveById = async (req, res) => {
     try {
-        const leave = await Leave.findById(req.params.id).populate('employeeId', 'employeeId firstName lastName department') .short({createdAt: -1})
+        const leave = await Leave.findById(req.params.id).populate('employeeId', 'employeeId firstName lastName department')  .populate('level1ReportingManager', 'employeeId firstName lastName department')
+        .populate('level2ReportingManager', 'employeeId firstName lastName department') .sort({createdAt: -1})
         if (!leave) return res.status(404).json({ message: "Leave not found" });
         res.status(200).json(leave);
     } catch (err) {
@@ -39,6 +57,84 @@ const getMyLeaves = async (req, res) => {
 };
 
  
+
+// const requestLeave = async (req, res) => {
+//     try {
+//         const { leaveType, startDate, endDate, reason } = req.body;
+//         const employeeId = req.user.id; 
+
+//         // Validate input fields
+//         if (!leaveType || !startDate || !endDate) {
+//             return res.status(400).json({ message: "Missing required fields" });
+//         }
+
+//         // Validate leave type
+//         if (!['sickLeave', 'casualLeave', 'LWP'].includes(leaveType)) {
+//             return res.status(400).json({ message: "Invalid leave type" });
+//         }
+
+//         // Validate date range
+//         const start = moment(startDate);
+//         const end = moment(endDate);
+//         const leaveDays = end.diff(start, "days") + 1; // Include the end day
+
+//         if (leaveDays <= 0) {
+//             return res.status(400).json({ message: "Invalid leave duration" });
+//         }
+
+//         // Fetch employee data
+//         const employee = await Employee.findById(employeeId);
+//         if (!employee) {
+//             return res.status(404).json({ message: "Employee not found" });
+//         }
+
+//         // Check leave balance
+//         const leaveBalance = employee[leaveType];
+//         if (leaveBalance < leaveDays) {
+//             return res.status(400).json({
+//                 message: `Insufficient ${leaveType} balance. Available: ${leaveBalance} days`,
+//             });
+//         }
+
+//         // Check monthly leave cap
+//         const leavesThisMonth = await Leave.find({
+//             employeeId,
+//             status: { $ne: "rejected" }, // Only consider non-rejected leaves
+//             startDate: { $gte: start.startOf("month").toDate() },
+//             endDate: { $lte: end.endOf("month").toDate() },
+//         });
+
+//         const leavesTakenThisMonth = leavesThisMonth.reduce((total, leave) => {
+//             return total + (moment(leave.endDate).diff(moment(leave.startDate), "days") + 1);
+//         }, 0);
+
+//         if (leavesTakenThisMonth + leaveDays > 4) {
+//             return res.status(400).json({
+//                 message: "You can only take a maximum of 4 leaves in a month",
+//             });
+//         }
+
+//         // Create a leave request
+//         const leaveRequest = new Leave({
+//             employeeId,
+//             leaveType,
+//             startDate,
+//             endDate,
+//             reason,
+//             status: "pending",
+//         });
+
+//         await leaveRequest.save();
+
+//         res.status(201).json({
+//             message: "Leave requested successfully, pending approval",
+//             leaveRequest,
+//         });
+//     } catch (error) {
+//         console.error(error);
+//         res.status(500).json({ message: "An error occurred while processing the request" });
+//     }
+// };
 
 const requestLeave = async (req, res) => {
     try {
@@ -64,8 +160,8 @@ const requestLeave = async (req, res) => {
             return res.status(400).json({ message: "Invalid leave duration" });
         }
 
-        // Fetch employee data
-        const employee = await Employee.findById(employeeId);
+        // Fetch employee data along with reporting managers
+        const employee = await Employee.findById(employeeId).select('level1ReportingManager level2ReportingManager sickLeave casualLeave LWP');
         if (!employee) {
             return res.status(404).json({ message: "Employee not found" });
         }
@@ -81,7 +177,7 @@ const requestLeave = async (req, res) => {
         // Check monthly leave cap
         const leavesThisMonth = await Leave.find({
             employeeId,
-            status: { $ne: "rejected" }, // Only consider non-rejected leaves
+            status: { $ne: "rejected" },
             startDate: { $gte: start.startOf("month").toDate() },
             endDate: { $lte: end.endOf("month").toDate() },
         });
@@ -96,7 +192,7 @@ const requestLeave = async (req, res) => {
             });
         }
 
-        // Create a leave request
+        // Create a leave request with managers included
         const leaveRequest = new Leave({
             employeeId,
             leaveType,
@@ -104,6 +200,8 @@ const requestLeave = async (req, res) => {
             endDate,
             reason,
             status: "pending",
+            level1ReportingManager: employee.level1ReportingManager, // Assign manager
+            level2ReportingManager: employee.level2ReportingManager // Assign manager
         });
 
         await leaveRequest.save();
@@ -117,6 +215,10 @@ const requestLeave = async (req, res) => {
         res.status(500).json({ message: "An error occurred while processing the request" });
     }
 };
+
+
+
+
 
 const updateLeaveStatus = async (req, res) => {
     try {
@@ -383,6 +485,74 @@ const getLeaveStatusById = async (req, res) => {
     }
 };
 
+const getLeavesByManager = async (req, res) => {
+    try {
+        const managerId = req.user.id; // Assuming authenticated user ID
+        const { employeeId } = req.params; // Get employeeId from route params
+
+        // 🔹 Validate and Convert to ObjectId
+        if (!mongoose.Types.ObjectId.isValid(managerId) || !mongoose.Types.ObjectId.isValid(employeeId)) {
+            return res.status(400).json({ error: "Invalid manager or employee ID" });
+        }
+
+        // 🔹 Find the employee and check if they belong to the reporting manager's team
+        const leaveRequests = await Leave.find({
+            $or: [
+                { "level1ReportingManager.employeeId": employeeId },
+                { "level2ReportingManager.employeeId": employeeId }
+            ]
+        })
+        .populate("employeeId", "firstName lastName employeeId")
+        .populate("level1ReportingManager", "firstName lastName employeeId")
+        .populate("level2ReportingManager", "firstName lastName employeeId")
+        .sort({ startDate: -1 });
+
+        if (!leaveRequests.length) {
+            return res.status(404).json({ message: "No leave requests found for this employee under your reporting." });
+        }
+
+        res.status(200).json({ leaveRequests });
+
+    } catch (error) {
+        console.error("Error fetching leaves by manager:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+const getAllLeavesWithFilters = async (req, res) => {
+    try {
+        const { employeeId } = req.params;
+
+        // Validate employee ID
+        if (!mongoose.Types.ObjectId.isValid(employeeId)) {
+            return res.status(400).json({ error: "Invalid employee ID" });
+        }
+
+        // Filter leaves where the provided employeeId is a reporting manager (level1 or level2)
+        const filter = {
+            $or: [
+                { level1ReportingManager: employeeId },
+                { level2ReportingManager: employeeId }
+            ]
+        };
+
+        // Fetch leave data
+        const leaves = await Leave.find(filter)
+            .populate('employeeId', 'employeeId firstName lastName department')
+            .populate('level1ReportingManager', 'employeeId firstName lastName department')
+            .populate('level2ReportingManager', 'employeeId firstName lastName department')
+            .sort({ createdAt: -1 });
+
+        if (!leaves.length) {
+            return res.status(404).json({ message: "No leaves found for the given reporting manager." });
+        }
+
+        res.status(200).json(leaves);
+    } catch (err) {
+        console.error("Error fetching leave data:", err);
+        res.status(500).json({ error: err.message });
+    }
+};
 
 
-module.exports = { getAllLeaves, getLeaveById, getMyLeaves, requestLeave, updateLeaveStatus, deleteLeave, getLeaveStatusById,  };
+module.exports = {getAllLeavesWithFilters, getAllLeaves, getLeaveById, getMyLeaves, requestLeave, updateLeaveStatus, deleteLeave, getLeaveStatusById, getLeavesByManager };
