@@ -337,12 +337,20 @@ const generateEmployeeId = () => {
 
 
 // Get All Employees
+
 // const getAllEmployees = async (req, res) => {
 //     try {
-//         const employees = await Employee.find().populate('department', 'name');
-//         if(!employees){
-//             res.status(400).json({message: "No data fount" });
+//         // Fetch all employees, excluding the one with employeeId "RW7446"
+//         const employees = await Employee.find({ employeeId: { $ne: "RW7446" } })
+//             .populate('department', 'name') // Populate department with only name field
+//             .populate('level1ReportingManager', 'firstName lastName role') // Populate Level 1 Manager with specific fields
+//             .populate('level2ReportingManager', 'firstName lastName role') // Populate Level 2 Manager with specific fields
+//             .sort({ firstName: 1 }); // Sort alphabetically by firstName
+
+//         if (!employees || employees.length === 0) {
+//             return res.status(400).json({ message: "No data found" });
 //         }
+
 //         res.status(200).json(employees);
 //     } catch (err) {
 //         res.status(500).json({ error: err.message });
@@ -355,6 +363,8 @@ const getAllEmployees = async (req, res) => {
             .populate('department', 'name') // Populate department with only name field
             .populate('level1ReportingManager', 'firstName lastName role') // Populate Level 1 Manager with specific fields
             .populate('level2ReportingManager', 'firstName lastName role') // Populate Level 2 Manager with specific fields
+            .populate('youAreLevel1ReportingManagerOf', 'firstName lastName employeeId') // Populate "You are the reporting manager of Level 1"
+            .populate('youAreLevel2ReportingManagerOf', 'firstName lastName employeeId') // Populate "You are the reporting manager of Level 2"
             .sort({ firstName: 1 }); // Sort alphabetically by firstName
 
         if (!employees || employees.length === 0) {
@@ -366,6 +376,9 @@ const getAllEmployees = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
+
+
+
 
 // Get Employee By ID
 const getEmployeeById = async (req, res) => {
@@ -602,17 +615,72 @@ const loginEmployee = async (req, res) => {
 };
 
 
-
 const getMyProfile = async (req, res) => {
     try {
-        const employee = await Employee.findOne({_id : req.user.id}).populate('department', 'name');
-        if (!employee) return res.status(404).json({ message: "profile not found" });
-        res.status(200).json({data : employee, message: "profile fetch successfully" });
+        const employee = await Employee.findOne({ _id: req.user.id })
+            .populate('department', 'name') // Populate department with only name field
+            .populate('level1ReportingManager', 'firstName lastName role') // Populate Level 1 Reporting Manager
+            .populate('level2ReportingManager', 'firstName lastName role') // Populate Level 2 Reporting Manager
+            .populate('youAreLevel1ReportingManagerOf', 'firstName lastName employeeId') // Populate "You are the reporting manager of Level 1"
+            .populate('youAreLevel2ReportingManagerOf', 'firstName lastName employeeId') // Populate "You are the reporting manager of Level 2"
+            .select('-password'); // Optionally exclude password from the profile response
+
+        if (!employee) {
+            return res.status(404).json({ message: "Profile not found" });
+        }
+
+        res.status(200).json({ data: employee, message: "Profile fetched successfully" });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 };
 
+const getMyTeam = async (req, res) => {
+    try {
+      // Get the logged-in user's employeeId from the decoded token
+      const loggedInEmployeeId = req.user.id;
+      
+      // Log the logged-in employeeId for debugging
+      console.log('Logged-in Employee ID:', loggedInEmployeeId);
+  
+      // Fetch the logged-in employee's data including department info
+      const loggedInEmployee = await Employee.findOne({ _id: req.user.id })
+        .populate('department', 'name');  // Populate department name
+  
+      // Check if the employee was found
+      if (!loggedInEmployee) {
+        return res.status(404).json({ message: "Employee not found" });
+      }
+  
+      // Log the logged-in employee data for debugging
+      console.log('Logged-in Employee:', loggedInEmployee);
+  
+      // Fetch employees from the same department as the logged-in employee
+      const team = await Employee.find({ department: loggedInEmployee.department._id })
+        .populate('department', 'name')
+        .populate('level1ReportingManager', 'firstName lastName role')
+        .populate('level2ReportingManager', 'firstName lastName role')
+        .populate('youAreLevel1ReportingManagerOf', 'firstName lastName employeeId')
+        .populate('youAreLevel2ReportingManagerOf', 'firstName lastName employeeId')
+        .sort({ firstName: 1 });
+  
+      // Exclude the logged-in employee from the team
+      const teamWithoutSelf = team.filter(employee => employee.employeeId !== loggedInEmployeeId);
+  
+      // Check if no team members were found
+      if (teamWithoutSelf.length === 0) {
+        return res.status(400).json({ message: "No team members found in the same department" });
+      }
+  
+      // Return the team members
+      res.status(200).json(teamWithoutSelf);
+    } catch (err) {
+      console.error(err);  // Log the error for debugging
+      res.status(500).json({ error: err.message });
+    }
+  };
+  
 
-module.exports = {bulkInsertEmployees, getAllEmployees, getEmployeeById, createEmployee, updateEmployee, deleteEmployee, loginEmployee, registerEmployee, getMyProfile}
+
+module.exports = {getMyTeam, bulkInsertEmployees, getAllEmployees, getEmployeeById, createEmployee, updateEmployee, deleteEmployee, loginEmployee, registerEmployee, getMyProfile}
 

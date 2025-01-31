@@ -2,21 +2,7 @@ const mongoose = require("mongoose");
 
 const settingsSchema = new mongoose.Schema(
   {
-    weekOffDays: {
-      type: [String], // e.g., ["Sunday"]
-      required: true,
-      default: ["Sunday"],
-      enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-    },
-    customWeekOffs: {
-      type: [
-        {
-          day: { type: String, required: true, enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] },
-          weekNumbers: { type: [Number], required: true, enum: [1, 2, 3, 4, 5] }, // e.g., [1, 3] for 1st and 3rd week
-        },
-      ],
-      default: [],
-    },
+   
     announcements: [
       {
         title: { type: String, required: true },
@@ -62,14 +48,7 @@ const settingsSchema = new mongoose.Schema(
       required: true,
       default: false, // Default is disabled
     },
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
-    updatedAt: {
-      type: Date,
-      default: Date.now,
-    },
+   
   },
   {
     timestamps: true,

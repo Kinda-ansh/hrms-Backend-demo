@@ -9,6 +9,7 @@ const router = express.Router();
 router.get("/employees", authMiddleware, roleMiddleware(["admin", "hr", 'manager', "employee"]), employeeController.getAllEmployees);
 router.get("/employees/:id", authMiddleware, roleMiddleware(["admin", "hr", "employee", 'manager']), employeeController.getEmployeeById);
 router.get("/myprofile", authMiddleware, roleMiddleware(["admin", "hr", "employee", 'manager']), employeeController.getMyProfile);
+router.get("/my-team", authMiddleware, roleMiddleware(["admin", "hr", "employee", 'manager']), employeeController.getMyTeam);
 router.post("/employees", authMiddleware, roleMiddleware(["admin", "hr", 'manager']), employeeController.createEmployee);
 router.put("/employees/:id", authMiddleware, roleMiddleware(["admin", "hr", 'manager']), employeeController.updateEmployee);
 router.delete("/employees/:id", authMiddleware, roleMiddleware(["admin", 'manager', 'hr']), employeeController.deleteEmployee);
