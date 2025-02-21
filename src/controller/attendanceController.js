@@ -1047,6 +1047,52 @@ const getAllEmployeesTodayAttendance = async (req, res) => {
 };
 
 
+cron.schedule("05 15 * * *", async () => {
+  try {
+    const now = moment().tz("Asia/Kolkata");
+    const currentDate = now.format("YYYY-MM-DD");
+
+    console.log(`Running daily attendance report cron job at: ${now.format("HH:mm:ss")} IST`);
+
+    // Fetch all employees except admins
+    const employees = await Employee.find({ role: { $ne: 'admin' } });
+
+    for (const employee of employees) {
+      // Get attendance record for the current employee for the day
+      const attendanceRecord = await Attendance.findOne({
+        date: currentDate,
+        employeeId: employee._id,
+      });
+
+      // Prepare email content
+      const emailData = {
+        firstName: employee.firstName,
+        date: currentDate,
+        status: attendanceRecord ? attendanceRecord.status : 'Absent',
+        checkInTime: attendanceRecord?.createdAt ? moment(attendanceRecord.createdAt).format("hh:mm A") : '-',
+        checkOutTime: attendanceRecord?.checkOutTime ? moment(attendanceRecord.checkOutTime).format("hh:mm A") : '-',
+        lateTime: attendanceRecord?.lateTime || '-',
+        totalWorkingHour: attendanceRecord?.totalWorkingHour || '-',
+      };
+
+      // Send attendance email
+      await sendEmail(
+        employee.email,
+        'Daily Attendance Report',
+        'dailyAttendanceReport', // Assuming this is the template name
+        emailData
+      );
+
+      console.log(`Attendance report sent to: ${employee.email}`);
+    }
+
+    console.log("Daily attendance report process completed.");
+  } catch (err) {
+    console.error("Error occurred during daily attendance report:", err.message);
+  }
+}, {
+  timezone: "Asia/Kolkata", // Force the cron job to run at IST
+});
 
 
 
